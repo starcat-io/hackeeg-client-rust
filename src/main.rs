@@ -1,6 +1,3 @@
-extern crate clap;
-extern crate serialport;
-
 use std::io::{self, Write};
 use std::time::Duration;
 use std::{thread, time};
