@@ -24,6 +24,17 @@ fn get_command_line(command: String) -> String {
     return command_line;
 }
 
+fn send_command_line(port: &mut Box<dyn SerialPort>, command_line: String) {
+    match port.write(command_line.as_bytes()) {
+        Ok(_) => {
+            println!("nop sent.");
+            std::io::stdout().flush().unwrap();
+        }
+        Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+        Err(e) => eprintln!("{:?}", e),
+    }
+}
+
 fn main() {
     let matches = App::new("Serialport Example - Receive Data")
         .about("Reads data from a serial port and echoes it to stdout")
@@ -70,14 +81,7 @@ fn main() {
 
             loop {
                 let nop_command_line: (String) = get_command_line("nop".to_string());
-                match port.write(nop_command_line.as_bytes()) {
-                    Ok(_) => {
-                        println!("nop sent.");
-                        std::io::stdout().flush().unwrap();
-                    }
-                    Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-                    Err(e) => eprintln!("{:?}", e),
-                }
+                send_command_line(&mut port, nop_command_line);
                 match port.read(serial_buf.as_mut_slice()) {
                     Ok(t) => io::stdout().write_all(&serial_buf[..t]).unwrap(),
                     Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
