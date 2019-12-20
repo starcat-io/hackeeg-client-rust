@@ -39,7 +39,7 @@ fn send_command_line(port: &mut Box<dyn SerialPort>, command: String) {
     }
 }
 
-unsafe fn read_response(port: &mut Box<dyn SerialPort>) {
+fn read_response(port: &mut Box<dyn SerialPort>) {
     let mut serial_buf: Vec<u8> = vec![0; 1000];
     match port.read(serial_buf.as_mut_slice()) {
         Ok(t) => io::stdout().write_all(&serial_buf[..t]).unwrap(),
@@ -50,9 +50,7 @@ unsafe fn read_response(port: &mut Box<dyn SerialPort>) {
 
 fn execute_command(port: &mut Box<dyn SerialPort>, command: String) {
     send_command_line(port, command);
-    unsafe {
-        read_response(port);
-    }
+    read_response(port);
 }
 
 
