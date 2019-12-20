@@ -3,12 +3,14 @@ extern crate serialport;
 
 use std::io::{self, Write};
 use std::time::Duration;
+use std::{thread, time};
 
 use clap::{App, AppSettings, Arg};
 use serialport::prelude::*;
 
 use serde_json::{json};
 
+const BLINK_PAUSE_IN_MILLISECONDS : u64 = 200;
 
 fn get_command(command: String) -> String {
     let command_value = json!({
@@ -24,10 +26,12 @@ fn get_command_line(command: String) -> String {
     return command_line;
 }
 
-fn send_command_line(port: &mut Box<dyn SerialPort>, command_line: String) {
+fn send_command_line(port: &mut Box<dyn SerialPort>, command: String) {
+    let command_line = get_command_line(command);
     match port.write(command_line.as_bytes()) {
         Ok(_) => {
-            println!("nop sent.");
+            println!("command sent:");
+            println!("{}", command_line);
             std::io::stdout().flush().unwrap();
         }
         Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
@@ -35,8 +39,25 @@ fn send_command_line(port: &mut Box<dyn SerialPort>, command_line: String) {
     }
 }
 
+unsafe fn read_response(port: &mut Box<dyn SerialPort>) {
+    let mut serial_buf: Vec<u8> = vec![0; 1000];
+    match port.read(serial_buf.as_mut_slice()) {
+        Ok(t) => io::stdout().write_all(&serial_buf[..t]).unwrap(),
+        Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+        Err(e) => eprintln!("{:?}", e),
+    }
+}
+
+fn execute_command(port: &mut Box<dyn SerialPort>, command: String) {
+    send_command_line(port, command);
+    unsafe {
+        read_response(port);
+    }
+}
+
+
 fn main() {
-    let matches = App::new("Serialport Example - Receive Data")
+let matches = App::new("Serialport Example - Receive Data")
         .about("Reads data from a serial port and echoes it to stdout")
         .setting(AppSettings::DisableVersion)
         .arg(
@@ -66,27 +87,21 @@ fn main() {
 
     match serialport::open_with_settings(&port_name, &settings) {
         Ok(mut port) => {
-            let mut serial_buf: Vec<u8> = vec![0; 1000];
             println!("Receiving data on {} at {} baud:", &port_name, &baud_rate);
 
-            let jsonlines = "jsonlines\r\n";
-            match port.write(jsonlines.to_string().as_bytes()) {
-                Ok(_) => {
-                    println!("jsonlines sent.");
-                    std::io::stdout().flush().unwrap();
-                }
-                Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-                Err(e) => eprintln!("{:?}", e),
-            }
+            // switch to jsonlines mode
+            let jsonlines_command = "jsonlines".to_string();
+            send_command_line(&mut port, jsonlines_command);
 
+            let nop_command: (String) = get_command("nop".to_string());
+            execute_command(&mut port, nop_command);
+
+            let blink_pause_duration= time::Duration::from_millis(BLINK_PAUSE_IN_MILLISECONDS);
             loop {
-                let nop_command_line: (String) = get_command_line("nop".to_string());
-                send_command_line(&mut port, nop_command_line);
-                match port.read(serial_buf.as_mut_slice()) {
-                    Ok(t) => io::stdout().write_all(&serial_buf[..t]).unwrap(),
-                    Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-                    Err(e) => eprintln!("{:?}", e),
-                }
+                execute_command(&mut port, "boardledon".to_string());
+                thread::sleep(blink_pause_duration);
+                execute_command(&mut port, "boardledoff".to_string());
+                thread::sleep(blink_pause_duration);
             }
         }
         Err(e) => {
