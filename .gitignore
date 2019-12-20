@@ -1,0 +1,8 @@
+
+# rust
+/target
+**/*.rs.bk
+
+# CLion
+.idea/
+
