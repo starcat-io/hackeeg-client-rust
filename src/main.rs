@@ -26,8 +26,8 @@ fn get_command_line(command: String) -> String {
     return command_line;
 }
 
-fn send_command_line(port: &mut Box<dyn SerialPort>, command: String) {
-    let command_line = get_command_line(command);
+fn send_command_line(port: &mut Box<dyn SerialPort>, command: &str) {
+    let command_line = get_command_line(command.to_string());
     match port.write(command_line.as_bytes()) {
         Ok(_) => {
             println!("command sent:");
@@ -48,7 +48,7 @@ unsafe fn read_response(port: &mut Box<dyn SerialPort>) {
     }
 }
 
-fn execute_command(port: &mut Box<dyn SerialPort>, command: String) {
+fn execute_command(port: &mut Box<dyn SerialPort>, command: &str) {
     send_command_line(port, command);
     unsafe {
         read_response(port);
@@ -90,17 +90,15 @@ let matches = App::new("Serialport Example - Receive Data")
             println!("Receiving data on {} at {} baud:", &port_name, &baud_rate);
 
             // switch to jsonlines mode
-            let jsonlines_command = "jsonlines".to_string();
-            send_command_line(&mut port, jsonlines_command);
+            send_command_line(&mut port, "jsonlines");
 
-            let nop_command: (String) = get_command("nop".to_string());
-            execute_command(&mut port, nop_command);
+            execute_command(&mut port, "nop");
 
             let blink_pause_duration= time::Duration::from_millis(BLINK_PAUSE_IN_MILLISECONDS);
             loop {
-                execute_command(&mut port, "boardledon".to_string());
+                execute_command(&mut port, "boardledon");
                 thread::sleep(blink_pause_duration);
-                execute_command(&mut port, "boardledoff".to_string());
+                execute_command(&mut port, "boardledoff");
                 thread::sleep(blink_pause_duration);
             }
         }
