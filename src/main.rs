@@ -8,21 +8,21 @@ use std::{thread, time};
 use clap::{App, AppSettings, Arg};
 use serialport::prelude::*;
 
-use serde_json::{json};
+use serde_json::json;
 
-const BLINK_PAUSE_IN_MILLISECONDS : u64 = 200;
+const BLINK_PAUSE_IN_MILLISECONDS: u64 = 200;
 
 fn get_command(command: String) -> String {
     let command_value = json!({
-                    "COMMAND": command,
-                    "PARAMETERS": [],
-                });
+        "COMMAND": command,
+        "PARAMETERS": [],
+    });
     return command_value.to_string();
 }
 
 fn get_command_line(command: String) -> String {
-    let command: (String) = get_command(command);
-    let command_line: (String) = command.to_string() +  "\r\n";
+    let command: String = get_command(command);
+    let command_line: String = command.to_string() + "\r\n";
     return command_line;
 }
 
@@ -55,9 +55,8 @@ fn execute_command(port: &mut Box<dyn SerialPort>, command: &str) {
     }
 }
 
-
 fn main() {
-let matches = App::new("Serialport Example - Receive Data")
+    let matches = App::new("Serialport Example - Receive Data")
         .about("Reads data from a serial port and echoes it to stdout")
         .setting(AppSettings::DisableVersion)
         .arg(
@@ -94,7 +93,7 @@ let matches = App::new("Serialport Example - Receive Data")
 
             execute_command(&mut port, "nop");
 
-            let blink_pause_duration= time::Duration::from_millis(BLINK_PAUSE_IN_MILLISECONDS);
+            let blink_pause_duration = time::Duration::from_millis(BLINK_PAUSE_IN_MILLISECONDS);
             loop {
                 execute_command(&mut port, "boardledon");
                 thread::sleep(blink_pause_duration);
@@ -108,4 +107,3 @@ let matches = App::new("Serialport Example - Receive Data")
         }
     }
 }
-
