@@ -1,56 +1,14 @@
-use std::io::{self, Write};
+use log::info;
 use std::time::Duration;
-use std::{thread, time};
 
 use clap::{App, AppSettings, Arg};
-use serialport::prelude::*;
+use serialport::prelude::SerialPortSettings;
 
-use serde_json::json;
+use hackeeg::{client::HackEEGClient, common};
 
-const BLINK_PAUSE_IN_MILLISECONDS: u64 = 200;
+const MAIN_TAG: &str = "main";
 
-fn get_command(command: String) -> String {
-    let command_value = json!({
-        "COMMAND": command,
-        "PARAMETERS": [],
-    });
-    return command_value.to_string();
-}
-
-fn get_command_line(command: String) -> String {
-    let command: String = get_command(command);
-    let command_line: String = command.to_string() + "\r\n";
-    return command_line;
-}
-
-fn send_command_line(port: &mut Box<dyn SerialPort>, command: &str) {
-    let command_line = get_command_line(command.to_string());
-    match port.write(command_line.as_bytes()) {
-        Ok(_) => {
-            println!("command sent:");
-            println!("{}", command_line);
-            std::io::stdout().flush().unwrap();
-        }
-        Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-        Err(e) => eprintln!("{:?}", e),
-    }
-}
-
-fn read_response(port: &mut Box<dyn SerialPort>) {
-    let mut serial_buf: Vec<u8> = vec![0; 1000];
-    match port.read(serial_buf.as_mut_slice()) {
-        Ok(t) => io::stdout().write_all(&serial_buf[..t]).unwrap(),
-        Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-        Err(e) => eprintln!("{:?}", e),
-    }
-}
-
-fn execute_command(port: &mut Box<dyn SerialPort>, command: &str) {
-    send_command_line(port, command);
-    read_response(port);
-}
-
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = App::new("Serialport Example - Receive Data")
         .about("Reads data from a serial port and echoes it to stdout")
         .setting(AppSettings::DisableVersion)
@@ -64,41 +22,25 @@ fn main() {
             Arg::with_name("baud")
                 .help("The baud rate to connect at")
                 .use_delimiter(false)
+                .default_value("115200")
                 .required(true),
         )
         .get_matches();
     let port_name = matches.value_of("port").unwrap();
-    let baud_rate = matches.value_of("baud").unwrap();
+    let baud_rate = matches.value_of("baud").unwrap().parse::<u32>()?;
 
-    let mut settings: SerialPortSettings = Default::default();
+    common::log::setup_logger(log::LevelFilter::Trace, None)?;
+
+    let mut settings = SerialPortSettings::default();
+    settings.baud_rate = baud_rate;
     settings.timeout = Duration::from_millis(10);
-    if let Ok(rate) = baud_rate.parse::<u32>() {
-        settings.baud_rate = rate.into();
-    } else {
-        eprintln!("Error: Invalid baud rate '{}' specified", baud_rate);
-        ::std::process::exit(1);
-    }
 
-    match serialport::open_with_settings(&port_name, &settings) {
-        Ok(mut port) => {
-            println!("Receiving data on {} at {} baud:", &port_name, &baud_rate);
+    info!(
+        target: MAIN_TAG,
+        "Creating client connection to {}", port_name
+    );
+    let client = HackEEGClient::new(port_name, &settings)?;
+    client.blink_test(10)?;
 
-            // switch to jsonlines mode
-            send_command_line(&mut port, "jsonlines");
-
-            execute_command(&mut port, "nop");
-
-            let blink_pause_duration = time::Duration::from_millis(BLINK_PAUSE_IN_MILLISECONDS);
-            loop {
-                execute_command(&mut port, "boardledon");
-                thread::sleep(blink_pause_duration);
-                execute_command(&mut port, "boardledoff");
-                thread::sleep(blink_pause_duration);
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to open \"{}\". Error: {}", port_name, e);
-            ::std::process::exit(1);
-        }
-    }
+    Ok(())
 }
