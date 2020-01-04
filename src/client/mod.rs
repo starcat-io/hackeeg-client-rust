@@ -5,6 +5,7 @@ use serialport::Result as SerialResult;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::io::Result as IOResult;
+use std::io::{BufRead, BufReader};
 use std::time::Duration;
 
 mod err;
@@ -15,6 +16,11 @@ use modes::Mode;
 mod commands;
 
 const CLIENT_TAG: &str = "hackeeg_client";
+
+struct Port {
+    raw_port: Box<dyn SerialPort>,
+    reader: BufReader<Box<dyn SerialPort>>,
+}
 
 pub struct HackEEGClient {
     port_name: String,
@@ -35,6 +41,12 @@ impl HackEEGClient {
             mode: Cell::new(Mode::Unknown),
         };
 
+        // ensure we start in jsonlines mode
+        client.send_json_cmd("stop")?;
+        client.send_json_cmd("sdatac")?;
+        client.send_text_cmd("jsonlines")?;
+        client.noop()?;
+
         // detect our client mode
         let detected_mode = client.sense_mode()?;
         client.mode.set(detected_mode);
@@ -49,68 +61,11 @@ impl HackEEGClient {
         //        self.send_json_cmd("stop")?;
         //        self.send_json_cmd("sdatac")?;
         //        match self.execute_json_cmd("nop") {}
-        Ok(Mode::Text)
+        Ok(Mode::JsonLines)
     }
 
     pub fn jsonlines(&self) -> IOResult<usize> {
         self.send_text_cmd("jsonlines")
-    }
-
-    /// Ensures that the device is in the desired mode, and returns whether it had to change it
-    /// into that mode in order to ensure
-    fn ensure_mode(&self, desired_mode: Mode) -> IOResult<bool> {
-        let cur_mode = self.mode.get();
-
-        if cur_mode != desired_mode {
-            debug!(
-                target: CLIENT_TAG,
-                "Desired mode {:?} doesn't match current mode {:?}", desired_mode, cur_mode
-            );
-
-            let mut port = self.port.borrow_mut();
-
-            // FIXME i'm not sure this matrix is correct.  for example, i don't know how to go
-            // to Mode::Text
-            match desired_mode {
-                Mode::Text => match cur_mode {
-                    Mode::JsonLines => {
-                        port.write("jsonlines".as_bytes())?;
-                    }
-                    Mode::MsgPack => {
-                        port.write("jsonlines".as_bytes())?;
-                        port.write(json_cmd_line("messagepack").as_bytes())?;
-                    }
-                    _ => unreachable!(),
-                },
-                Mode::JsonLines => match cur_mode {
-                    Mode::MsgPack => {
-                        port.write(json_cmd_line("messagepack").as_bytes())?;
-                    }
-                    // FIXME is this correct?
-                    Mode::Text => {
-                        port.write(json_cmd_line("stop").as_bytes())?;
-                    }
-                    _ => unreachable!(),
-                },
-                Mode::MsgPack => match cur_mode {
-                    Mode::JsonLines => {
-                        port.write("jsonlines".as_bytes())?;
-                    }
-                    // FIXME is this correct?
-                    Mode::Text => {
-                        port.write(json_cmd_line("stop").as_bytes())?;
-                    }
-                    _ => unreachable!(),
-                },
-                // we should never get here, because our new() method determines the current mode
-                Mode::Unknown => unreachable!(),
-            }
-
-            self.mode.set(desired_mode);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
     }
 
     pub fn blink_test(&self, num: u32) -> IOResult<()> {
@@ -126,6 +81,19 @@ impl HackEEGClient {
         Ok(())
     }
 
+    pub fn noop(&self) -> ClientResult<bool> {
+        // no-op is a little special in that it can be expected to fail on deserialization, and
+        // that isn't considered an error
+        match self.execute_json_cmd("nop") {
+            Ok(commands::NoOp {
+                status_code,
+                status_text,
+            }) => Ok(true),
+            Err(ClientError::DeserializeError(_)) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn board_led_on(&self) -> IOResult<()> {
         info!(target: CLIENT_TAG, "Turning board LED on");
         self.send_json_cmd("boardledon")?;
@@ -139,23 +107,25 @@ impl HackEEGClient {
     }
 
     pub fn send_json_cmd(&self, cmd: &str) -> IOResult<usize> {
-        debug!(target: CLIENT_TAG, "Sending JSON command {}", cmd);
-        self.ensure_mode(Mode::JsonLines)?;
+        debug!(target: CLIENT_TAG, "Sending JSON command '{}'", cmd);
         self.port.borrow_mut().write(json_cmd_line(cmd).as_bytes())
     }
 
     pub fn send_text_cmd(&self, cmd: &str) -> IOResult<usize> {
-        debug!(target: CLIENT_TAG, "Sending text command {}", cmd);
-        self.ensure_mode(Mode::Text)?;
-        self.port.borrow_mut().write(cmd.as_bytes())
+        debug!(target: CLIENT_TAG, "Sending text command '{}'", cmd);
+        let mut port = self.port.borrow_mut();
+        let mut full_cmd = cmd.to_string();
+        full_cmd.push('\n');
+        port.write(full_cmd.as_bytes())
     }
 
-    fn read_response(&self, buffer: &mut Vec<u8>) -> IOResult<usize> {
-        // FIXME what happens if we fill the buffer?  might need to exponentially grow the buffer
-        // to continue to read the rest of the data.  for now though, we just assume the buffer is
-        // big enough
-        let _read = self.port.borrow_mut().read(buffer.as_mut_slice())?;
-        Ok(_read)
+    fn read_response(&self) -> IOResult<String> {
+        let mut port = self.port.borrow_mut();
+        let mut reader = BufReader::new(port.as_mut());
+        let mut buf = String::new();
+        reader.read_line(&mut buf)?;
+
+        Ok(buf)
     }
 
     /// Executes a json command and deserializes the result as `T`.  Since `T` has
@@ -165,12 +135,17 @@ impl HackEEGClient {
     where
         T: serde::de::DeserializeOwned + Clone,
     {
+        debug!(
+            target: CLIENT_TAG,
+            "Executing JSON command '{}' and then reading response", cmd
+        );
         self.send_json_cmd(cmd)?;
 
         let mut buf = vec![0; 1024];
-        let _read = self.read_response(&mut buf)?;
+        let resp = self.read_response()?;
+        trace!(target: CLIENT_TAG, "Got response: {}", resp.trim());
 
-        Ok(serde_json::from_slice(buf.as_slice())?)
+        Ok(serde_json::from_str(&resp)?)
     }
 }
 

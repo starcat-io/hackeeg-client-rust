@@ -1,4 +1,12 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Debug)]
 struct Command {}
+
+#[derive(Deserialize, Clone, Debug)]
+pub(super) struct NoOp {
+    #[serde(rename = "STATUS_CODE")]
+    pub status_code: u32,
+    #[serde(rename = "STATUS_TEXT")]
+    pub status_text: String,
+}

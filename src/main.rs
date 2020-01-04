@@ -13,6 +13,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .about("Reads data from a serial port and echoes it to stdout")
         .setting(AppSettings::DisableVersion)
         .arg(
+            Arg::with_name("verbosity")
+                .short("v")
+                .multiple(true)
+                .help("Sets the level of verbosity"),
+        )
+        .arg(
             Arg::with_name("port")
                 .help("The device path to a serial port")
                 .use_delimiter(false)
@@ -26,10 +32,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .required(true),
         )
         .get_matches();
+
+    let log_level = match matches.occurrences_of("verbosity") {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
+
     let port_name = matches.value_of("port").unwrap();
     let baud_rate = matches.value_of("baud").unwrap().parse::<u32>()?;
 
-    common::log::setup_logger(log::LevelFilter::Trace, None)?;
+    common::log::setup_logger(log_level, None)?;
 
     let mut settings = SerialPortSettings::default();
     settings.baud_rate = baud_rate;
