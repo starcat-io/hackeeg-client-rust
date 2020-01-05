@@ -13,10 +13,11 @@ mod err;
 mod modes;
 mod sample;
 
-use crate::client::commands::NoArgs;
-use crate::client::err::ClientError;
+use crate::client::commands::responses::Status;
 use crate::common::constants;
+use commands::args::NoArgs;
 use constants::ads1299;
+use err::ClientError;
 use modes::Mode;
 
 const CLIENT_TAG: &str = "hackeeg_client";
@@ -37,6 +38,10 @@ type ClientResult<T> = Result<T, err::ClientError>;
 
 impl HackEEGClient {
     pub fn new(port_name: &str, settings: &SerialPortSettings) -> Result<Self, Box<dyn Error>> {
+        info!(
+            target: CLIENT_TAG,
+            "Creating client connection to {}", port_name
+        );
         let port = serialport::open_with_settings(port_name, settings)?;
 
         // construct our client
@@ -130,7 +135,7 @@ impl HackEEGClient {
         // no-op is a little special in that it can be expected to fail on deserialization, and
         // that isn't considered an error
         match self.execute_json_cmd("nop", NoArgs) {
-            Ok(commands::NoOp {
+            Ok(Status {
                 status_code,
                 status_text,
             }) => Ok(true),
@@ -172,7 +177,7 @@ impl HackEEGClient {
         port.write(full_cmd.as_bytes())
     }
 
-    fn read_response(&self) -> IOResult<String> {
+    fn read_response_line(&self) -> IOResult<String> {
         let mut port = self.port.borrow_mut();
         let mut reader = BufReader::new(port.as_mut());
         let mut buf = String::new();
@@ -196,7 +201,7 @@ impl HackEEGClient {
         self.send_json_cmd(cmd, args)?;
 
         let mut buf = vec![0; 1024];
-        let resp = self.read_response()?;
+        let resp = self.read_response_line()?;
         trace!(target: CLIENT_TAG, "Got response: {}", resp.trim());
 
         Ok(serde_json::from_str(&resp)?)
@@ -204,16 +209,30 @@ impl HackEEGClient {
 
     // stop data continuous
     pub fn sdatac(&self) -> ClientResult<()> {
-        self.send_json_cmd("sdatac", NoArgs)?;
+        let status: Status = self.execute_json_cmd("sdatac", NoArgs)?;
+        if !status.ok() {
+            return Err(status.into());
+        }
         self.continuous_read.set(false);
         Ok(())
     }
 
     // read data continuous
     pub fn rdatac(&self) -> ClientResult<()> {
-        self.send_json_cmd("rdatac", NoArgs)?;
+        let status: Status = self.execute_json_cmd("rdatac", NoArgs)?;
+        if !status.ok() {
+            return Err(status.into());
+        }
         self.continuous_read.set(true);
         Ok(())
+    }
+
+    pub fn read_rdatac_response(&self) -> ClientResult<sample::Payload> {
+        let resp = self.read_response_line()?;
+        debug!("{}", resp);
+        let sample: commands::responses::Sample = serde_json::from_str(&resp)?;
+        let payload: sample::Payload = sample.data.as_bytes().into();
+        Ok(payload)
     }
 
     /// Ensures that the device is in the desired mode, and returns whether it had to change it

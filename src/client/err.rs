@@ -1,7 +1,10 @@
+use crate::client::commands::responses::Status;
+
 #[derive(Debug)]
 pub enum ClientError {
     IOError(std::io::Error),
     DeserializeError(serde_json::error::Error),
+    BadStatus(Status),
     Other(Box<dyn std::error::Error>),
 }
 
@@ -14,6 +17,12 @@ impl From<std::io::Error> for ClientError {
 impl From<serde_json::error::Error> for ClientError {
     fn from(e: serde_json::error::Error) -> Self {
         ClientError::DeserializeError(e)
+    }
+}
+
+impl From<Status> for ClientError {
+    fn from(s: Status) -> Self {
+        ClientError::BadStatus(s)
     }
 }
 

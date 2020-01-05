@@ -9,7 +9,7 @@ use hackeeg::{client::HackEEGClient, common};
 const MAIN_TAG: &str = "main";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let matches = App::new("Serialport Example - Receive Data")
+    let matches = App::new("HackEEG Streamer")
         .about("Reads data from a serial port and echoes it to stdout")
         .setting(AppSettings::DisableVersion)
         .arg(
@@ -49,7 +49,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     settings.timeout = Duration::from_millis(10);
 
     let client = HackEEGClient::new(port_name, &settings)?;
-    client.blink_test(10)?;
+    client.rdatac()?;
+    client.read_rdatac_response()?;
 
     Ok(())
 }

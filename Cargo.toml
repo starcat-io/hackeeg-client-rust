@@ -19,3 +19,7 @@ rmp-serde = "0.14.0"
 [lib]
 name = "hackeeg"
 path = "src/lib.rs"
+
+[[bin]]
+name = "hackeeg_stream"
+path = "src/bin/hackeeg_stream.rs"

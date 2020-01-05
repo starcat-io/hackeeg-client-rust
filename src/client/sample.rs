@@ -14,7 +14,7 @@ impl From<&[u8]> for Channel {
     }
 }
 
-pub struct Sample {
+pub struct Payload {
     timestamp: chrono::DateTime<chrono::Utc>,
     sample_number: u32,
     ads_status: u32,
@@ -25,7 +25,7 @@ pub struct Sample {
     channels: [Channel; NUM_CHANNELS],
 }
 
-impl From<&[u8]> for Sample {
+impl From<&[u8]> for Payload {
     fn from(data: &[u8]) -> Self {
         let timestamp_secs = u32::from_le_bytes(data[0..4].try_into().unwrap()) as i64;
         let naive_dt = chrono::NaiveDateTime::from_timestamp(timestamp_secs, 0);
