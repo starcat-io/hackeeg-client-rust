@@ -1,6 +1,5 @@
+use crate::common::constants::NUM_CHANNELS;
 use std::convert::TryInto;
-
-const NUM_CHANNELS: usize = 8;
 
 #[derive(Copy, Clone)]
 pub struct Channel {

@@ -14,6 +14,7 @@ mod modes;
 mod sample;
 
 use crate::client::err::ClientError;
+use crate::common::constants::NUM_CHANNELS;
 use modes::Mode;
 
 const CLIENT_TAG: &str = "hackeeg_client";
@@ -48,8 +49,8 @@ impl HackEEGClient {
 
     pub fn enable_all_channels(&self) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Enabling all channels");
-        for chan_idx in 1..9 {
-            self.enable_channel(chan_idx, None)?
+        for chan_idx in 1..=NUM_CHANNELS {
+            self.enable_channel(chan_idx as u8, None)?
         }
         Ok(())
     }
@@ -65,8 +66,8 @@ impl HackEEGClient {
 
     pub fn disable_all_channels(&self) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling all channels");
-        for chan_idx in 1..9 {
-            self.disable_channel(chan_idx)?
+        for chan_idx in 1..=NUM_CHANNELS + 1 {
+            self.disable_channel(chan_idx as u8)?
         }
         Ok(())
     }
