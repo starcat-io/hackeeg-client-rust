@@ -1,6 +1,10 @@
 #![allow(non_camel_case_types)]
 //! ADS1299 constants
 
+use serde::export::fmt::Error;
+use serde::export::Formatter;
+use std::fmt;
+
 pub enum SystemCommands {
     WAKEUP = 0x02,
     STANDBY = 0x04,
@@ -163,14 +167,34 @@ pub enum LeadOffStatus {
 //
 //CHnSET_const = 0x00
 //
-//# ADS1299
-//GAIN_1X = 0x00
-//GAIN_2X = GAINn0
-//GAIN_4X = GAINn1
-//GAIN_6X = (GAINn1 | GAINn0)
-//GAIN_8X = GAINn2
-//GAIN_12X = (GAINn2 | GAINn0)
-//GAIN_24X = (GAINn2 | GAINn1)
+
+// http://www.ti.com/lit/ds/symlink/ads1299.pdf  pg 50
+#[derive(Debug)]
+pub enum Gain {
+    X1 = 0b0,
+    X2 = 0b001,
+    X4 = 0b010,
+    X6 = 0b011,
+    X8 = 0b100,
+    X12 = 0b101,
+    X24 = 0b110,
+}
+
+impl fmt::Display for Gain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::X1 => "X1",
+            Self::X2 => "X2",
+            Self::X4 => "X4",
+            Self::X6 => "X6",
+            Self::X8 => "X8",
+            Self::X12 => "X12",
+            Self::X24 => "X24",
+        };
+        write!(f, "Gain {}", s)
+    }
+}
+
 //
 //# ADS1298
 //ADS1298_GAIN_1X = GAINn0
