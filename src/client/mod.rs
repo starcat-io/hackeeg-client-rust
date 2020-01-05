@@ -132,7 +132,7 @@ impl HackEEGClient {
 
     /// Ensures that the device is in the desired mode, and returns whether it had to change it
     /// into that mode in order to ensure
-    fn ensure_mode(&mut self, desired_mode: Mode) -> ClientResult<bool> {
+    pub fn ensure_mode(&mut self, desired_mode: Mode) -> ClientResult<bool> {
         info!(target: CLIENT_TAG, "Ensuring we're in mode {:?}", self.mode);
         if self.mode != desired_mode {
             debug!(
