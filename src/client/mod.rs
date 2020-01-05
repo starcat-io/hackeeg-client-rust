@@ -46,10 +46,6 @@ impl HackEEGClient {
         Ok(client)
     }
 
-    pub fn jsonlines(&self) -> IOResult<usize> {
-        self.send_text_cmd("jsonlines")
-    }
-
     pub fn blink_test(&self, num: u32) -> IOResult<()> {
         info!("Starting blink test.");
         let sleep = || std::thread::sleep(std::time::Duration::from_millis(100));
