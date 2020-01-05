@@ -10,3 +10,9 @@ pub(super) struct NoOp {
     #[serde(rename = "STATUS_TEXT")]
     pub status_text: String,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub(super) struct SamplePayload {
+    #[serde(rename = "DATA")]
+    pub data: String,
+}

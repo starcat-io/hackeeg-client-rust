@@ -11,6 +11,7 @@ use std::time::Duration;
 mod commands;
 mod err;
 mod modes;
+mod sample;
 
 use crate::client::err::ClientError;
 use modes::Mode;
