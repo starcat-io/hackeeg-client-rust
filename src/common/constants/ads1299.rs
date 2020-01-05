@@ -156,7 +156,7 @@ pub enum LeadOffStatus {
 //FLEAD_OFF_AC = FLEAD_OFF0
 //FLEAD_OFF_DC = (FLEAD_OFF1 | FLEAD_OFF0)
 //
-//PDn = 0x80
+pub const PDn: u8 = 0x80;
 //GAINn2 = 0x40
 //GAINn1 = 0x20
 //GAINn0 = 0x10
@@ -205,8 +205,8 @@ impl fmt::Display for Gain {
 //ADS1298_GAIN_8X = (GAINn2 | GAINn0)
 //ADS1298_GAIN_12X = (GAINn2 | GAINn1)
 //
-//ELECTRODE_INPUT = 0x00
-//SHORTED = MUXn0
+pub const ELECTRODE_INPUT: u8 = 0x00;
+pub const SHORTED: u8 = 0x01;
 //RLD_INPUT = MUXn1
 //MVDD = (MUXn1 | MUXn0)
 //TEMP = MUXn2

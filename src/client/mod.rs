@@ -2,7 +2,7 @@ use log::{debug, info, trace};
 use serde_json::json;
 use serialport::prelude::*;
 use serialport::Result as SerialResult;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
@@ -30,6 +30,7 @@ pub struct HackEEGClient {
     port_name: String,
     port: RefCell<Box<dyn SerialPort>>,
     mode: Mode,
+    continuous_read: Cell<bool>,
 }
 
 type ClientResult<T> = Result<T, err::ClientError>;
@@ -43,6 +44,7 @@ impl HackEEGClient {
             port_name: port_name.to_string(),
             port: RefCell::new(port),
             mode: Mode::Unknown,
+            continuous_read: Cell::new(false),
         };
         client.ensure_mode(Mode::JsonLines);
 
@@ -65,8 +67,31 @@ impl HackEEGClient {
             "Enabling channel {} with gain {}", chan_num, gain
         );
 
-        self.execute_json_cmd("wreg", NoArgs)?;
-        //todo!();
+        let was_reading = if self.continuous_read.get() {
+            debug!(
+                target: CLIENT_TAG,
+                "We're in continuous read mode, temporarily disabling"
+            );
+            self.sdatac();
+            true
+        } else {
+            false
+        };
+
+        let args = [
+            ads1299::ChannelSettings::CHnSET as u8 + chan_num,
+            ads1299::ELECTRODE_INPUT | gain as u8,
+        ];
+        self.execute_json_cmd("wreg", args)?;
+
+        if was_reading {
+            debug!(
+                target: CLIENT_TAG,
+                "We were in continuous read, re-enabling"
+            );
+            self.rdatac();
+        }
+
         Ok(())
     }
 
@@ -80,7 +105,11 @@ impl HackEEGClient {
 
     pub fn disable_channel(&self, chan_num: u8) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling channel {}", chan_num);
-        //todo!();
+        let args = [
+            ads1299::ChannelSettings::CHnSET as u8 + chan_num,
+            ads1299::PDn | ads1299::SHORTED,
+        ];
+        self.execute_json_cmd("wreg", args)?;
         Ok(())
     }
 
@@ -173,6 +202,20 @@ impl HackEEGClient {
         Ok(serde_json::from_str(&resp)?)
     }
 
+    // stop data continuous
+    pub fn sdatac(&self) -> ClientResult<()> {
+        self.send_json_cmd("sdatac", NoArgs)?;
+        self.continuous_read.set(false);
+        Ok(())
+    }
+
+    // read data continuous
+    pub fn rdatac(&self) -> ClientResult<()> {
+        self.send_json_cmd("rdatac", NoArgs)?;
+        self.continuous_read.set(true);
+        Ok(())
+    }
+
     /// Ensures that the device is in the desired mode, and returns whether it had to change it
     /// into that mode in order to ensure
     pub fn ensure_mode(&mut self, desired_mode: Mode) -> ClientResult<bool> {
@@ -200,7 +243,7 @@ impl HackEEGClient {
                     }
                     Mode::Text | Mode::Unknown => {
                         self.send_json_cmd("stop", NoArgs)?;
-                        self.send_json_cmd("sdatac", NoArgs)?;
+                        self.sdatac()?;
                         self.send_text_cmd("jsonlines")?;
                         self.noop()?;
                     }
