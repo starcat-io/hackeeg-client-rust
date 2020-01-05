@@ -63,6 +63,20 @@ impl HackEEGClient {
         Ok(())
     }
 
+    pub fn disable_all_channels(&self) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "Disabling all channels");
+        for chan_idx in 1..9 {
+            self.disable_channel(chan_idx)?
+        }
+        Ok(())
+    }
+
+    pub fn disable_channel(&self, chan_num: u8) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "Disabling channel {}", chan_num);
+        todo!();
+        Ok(())
+    }
+
     pub fn blink_test(&self, num: u32) -> IOResult<()> {
         info!(target: CLIENT_TAG, "Starting blink test.");
         let sleep = || std::thread::sleep(std::time::Duration::from_millis(100));
