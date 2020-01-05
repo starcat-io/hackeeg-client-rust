@@ -46,8 +46,25 @@ impl HackEEGClient {
         Ok(client)
     }
 
+    pub fn enable_all_channels(&self) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "Enabling all channels");
+        for chan_idx in 1..9 {
+            self.enable_channel(chan_idx, None)?
+        }
+        Ok(())
+    }
+
+    pub fn enable_channel(&self, chan_num: u8, gain: Option<u32>) -> ClientResult<()> {
+        info!(
+            target: CLIENT_TAG,
+            "Enabling channel {} with gain {:?}", chan_num, gain
+        );
+        todo!();
+        Ok(())
+    }
+
     pub fn blink_test(&self, num: u32) -> IOResult<()> {
-        info!("Starting blink test.");
+        info!(target: CLIENT_TAG, "Starting blink test.");
         let sleep = || std::thread::sleep(std::time::Duration::from_millis(100));
         for i in 0..num {
             info!("Blinking {} more times", num - i);
