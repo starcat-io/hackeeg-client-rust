@@ -2,7 +2,7 @@ use log::{debug, info, trace};
 use serde_json::json;
 use serialport::prelude::*;
 use serialport::Result as SerialResult;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::error::Error;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
@@ -13,6 +13,7 @@ mod err;
 mod modes;
 mod sample;
 
+use crate::client::commands::NoArgs;
 use crate::client::err::ClientError;
 use crate::common::constants;
 use constants::ads1299;
@@ -64,7 +65,8 @@ impl HackEEGClient {
             "Enabling channel {} with gain {}", chan_num, gain
         );
 
-        todo!();
+        self.execute_json_cmd("wreg", NoArgs)?;
+        //todo!();
         Ok(())
     }
 
@@ -78,7 +80,7 @@ impl HackEEGClient {
 
     pub fn disable_channel(&self, chan_num: u8) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling channel {}", chan_num);
-        todo!();
+        //todo!();
         Ok(())
     }
 
@@ -98,7 +100,7 @@ impl HackEEGClient {
     pub fn noop(&self) -> ClientResult<bool> {
         // no-op is a little special in that it can be expected to fail on deserialization, and
         // that isn't considered an error
-        match self.execute_json_cmd("nop") {
+        match self.execute_json_cmd("nop", NoArgs) {
             Ok(commands::NoOp {
                 status_code,
                 status_text,
@@ -110,19 +112,27 @@ impl HackEEGClient {
 
     pub fn board_led_on(&self) -> IOResult<()> {
         info!(target: CLIENT_TAG, "Turning board LED on");
-        self.send_json_cmd("boardledon")?;
+        self.send_json_cmd("boardledon", NoArgs)?;
         Ok(())
     }
 
     pub fn board_led_off(&self) -> IOResult<()> {
         info!(target: CLIENT_TAG, "Turning board LED off");
-        self.send_json_cmd("boardledoff")?;
+        self.send_json_cmd("boardledoff", NoArgs)?;
         Ok(())
     }
 
-    pub fn send_json_cmd(&self, cmd: &str) -> IOResult<usize> {
-        debug!(target: CLIENT_TAG, "Sending JSON command '{}'", cmd);
-        self.port.borrow_mut().write(json_cmd_line(cmd).as_bytes())
+    pub fn send_json_cmd<G>(&self, cmd: &str, args: G) -> IOResult<usize>
+    where
+        G: serde::Serialize,
+    {
+        let to_send = json_cmd_line(cmd, args);
+        debug!(
+            target: CLIENT_TAG,
+            "Sending JSON command '{}'",
+            to_send.trim()
+        );
+        self.port.borrow_mut().write(to_send.as_bytes())
     }
 
     pub fn send_text_cmd(&self, cmd: &str) -> IOResult<usize> {
@@ -145,15 +155,16 @@ impl HackEEGClient {
     /// Executes a json command and deserializes the result as `T`.  Since `T` has
     /// `DeserializeOwned`, this performs a copy.  For very high performance, write another function
     /// that passes in the buffer and bounds `T` with `Deserialize<'de>` instead, for no copies.
-    pub fn execute_json_cmd<T>(&self, cmd: &str) -> ClientResult<T>
+    pub fn execute_json_cmd<T, G>(&self, cmd: &str, args: G) -> ClientResult<T>
     where
         T: serde::de::DeserializeOwned + Clone,
+        G: serde::Serialize,
     {
         debug!(
             target: CLIENT_TAG,
             "Executing JSON command '{}' and then reading response", cmd
         );
-        self.send_json_cmd(cmd)?;
+        self.send_json_cmd(cmd, args)?;
 
         let mut buf = vec![0; 1024];
         let resp = self.read_response()?;
@@ -188,8 +199,8 @@ impl HackEEGClient {
                         self.send_text_cmd("messagepack")?;
                     }
                     Mode::Text | Mode::Unknown => {
-                        self.send_json_cmd("stop")?;
-                        self.send_json_cmd("sdatac")?;
+                        self.send_json_cmd("stop", NoArgs)?;
+                        self.send_json_cmd("sdatac", NoArgs)?;
                         self.send_text_cmd("jsonlines")?;
                         self.noop()?;
                     }
@@ -200,7 +211,7 @@ impl HackEEGClient {
                         self.send_text_cmd("jsonlines")?;
                     }
                     Mode::Text => {
-                        self.send_json_cmd("text")?;
+                        self.send_json_cmd("text", NoArgs)?;
                     }
                     _ => unreachable!(),
                 },
@@ -217,14 +228,29 @@ impl HackEEGClient {
     }
 }
 
-fn json_cmd(cmd: &str) -> String {
-    let value = json!({
-        "COMMAND": cmd,
-        "PARAMETERS": [],
-    });
-    return value.to_string();
+fn json_cmd<G>(cmd: &str, args: G) -> String
+where
+    G: serde::Serialize,
+{
+    let params = serde_json::to_value(&args).unwrap();
+    if params.is_null() {
+        json!({
+            "COMMAND": cmd,
+            "PARAMETERS": [],
+        })
+        .to_string()
+    } else {
+        json!({
+            "COMMAND": cmd,
+            "PARAMETERS": [params],
+        })
+        .to_string()
+    }
 }
 
-fn json_cmd_line(cmd: &str) -> String {
-    json_cmd(cmd) + "\r\n"
+fn json_cmd_line<G>(cmd: &str, args: G) -> String
+where
+    G: serde::Serialize,
+{
+    json_cmd(cmd, args) + "\r\n"
 }

@@ -16,3 +16,6 @@ pub(super) struct SamplePayload {
     #[serde(rename = "DATA")]
     pub data: String,
 }
+
+#[derive(Serialize)]
+pub(super) struct NoArgs;
