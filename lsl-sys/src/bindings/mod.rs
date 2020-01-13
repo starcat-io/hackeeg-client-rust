@@ -37,7 +37,7 @@ pub struct StreamInfo {
 }
 
 impl StreamInfo {
-    fn new(
+    pub fn new(
         name: &str,
         stream_type: &str,
         channel_count: i32,
@@ -63,6 +63,19 @@ impl StreamInfo {
     }
 }
 
+pub struct Outlet {
+    info: StreamInfo,
+}
+
+impl Outlet {
+    pub fn new(info: StreamInfo) -> Self {
+        Self { info }
+    }
+
+    pub fn push_chunk(&self) {
+        unsafe {}
+    }
+}
 //pub fn lsl_push_chunk_it(
 //    out: lsl_outlet,
 //    data: *const i32,
