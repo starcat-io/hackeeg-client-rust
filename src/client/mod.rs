@@ -52,6 +52,7 @@ impl HackEEGClient {
             mode: Mode::Unknown,
             continuous_read: Cell::new(false),
         };
+
         client.ensure_mode(Mode::JsonLines)?;
 
         Ok(client)
