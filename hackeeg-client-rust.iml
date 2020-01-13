@@ -7,6 +7,16 @@
       <sourceFolder url="file://$MODULE_DIR$/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl2-sys/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl2-sys/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl2-sys/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl2-sys/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl-sys/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl-sys/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl-sys/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lsl-sys/benches" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/lsl-sys/target" />
+      <excludeFolder url="file://$MODULE_DIR$/lsl2-sys/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -7,6 +7,7 @@ use std::error::Error;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
 use std::time::Duration;
+use lsl_sys;
 
 mod commands;
 mod err;
