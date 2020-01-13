@@ -51,7 +51,7 @@ impl HackEEGClient {
             mode: Mode::Unknown,
             continuous_read: Cell::new(false),
         };
-        client.ensure_mode(Mode::JsonLines);
+        client.ensure_mode(Mode::JsonLines)?;
 
         Ok(client)
     }
@@ -238,7 +238,10 @@ impl HackEEGClient {
     /// Ensures that the device is in the desired mode, and returns whether it had to change it
     /// into that mode in order to ensure
     pub fn ensure_mode(&mut self, desired_mode: Mode) -> ClientResult<bool> {
-        info!(target: CLIENT_TAG, "Ensuring we're in mode {:?}", self.mode);
+        info!(
+            target: CLIENT_TAG,
+            "Ensuring we're in mode {:?}", desired_mode
+        );
         if self.mode != desired_mode {
             debug!(
                 target: CLIENT_TAG,
@@ -262,7 +265,9 @@ impl HackEEGClient {
                     }
                     Mode::Text | Mode::Unknown => {
                         self.send_json_cmd("stop", NoArgs)?;
-                        self.sdatac()?;
+                        // notice we're ignoring the potential error result here.  if we're not
+                        // in jsonlines mode already, sdatac will fail
+                        self.sdatac();
                         self.send_text_cmd("jsonlines")?;
                         self.noop()?;
                     }
