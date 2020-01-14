@@ -1,4 +1,3 @@
-
 use std::path::Path;
 
 static LIBLSL_NAME: &str = "lsl";
@@ -18,7 +17,7 @@ fn main() {
         .generate()
         .expect("Unable to generate bindings");
 
-    let lsl_binding = Path::new("lsl_bindings.rs");
+    let lsl_binding = Path::new("bindings.rs");
     bindings
         .write_to_file(out_dir.join(lsl_binding))
         .expect("Couldn't write bindings!");
