@@ -1,4 +1,5 @@
 use log::{debug, info, trace};
+use lsl_sys;
 use serde_json::json;
 use serialport::prelude::*;
 use serialport::Result as SerialResult;
@@ -7,11 +8,10 @@ use std::error::Error;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
 use std::time::Duration;
-use lsl_sys;
 
-mod commands;
+pub mod commands;
 mod err;
-mod modes;
+pub mod modes;
 mod sample;
 
 use crate::client::commands::responses::Status;
@@ -85,11 +85,10 @@ impl HackEEGClient {
             false
         };
 
-        let args = [
+        self.wreg(
             ads1299::ChannelSettings::CHnSET as u8 + chan_num,
             ads1299::ELECTRODE_INPUT | gain as u8,
-        ];
-        self.execute_json_cmd("wreg", args)?;
+        )?;
 
         if was_reading {
             debug!(
@@ -102,22 +101,80 @@ impl HackEEGClient {
         Ok(())
     }
 
+    pub fn channel_config_test(&self) -> ClientResult<()> {
+        let map_status = |status: Status| status.assert();
+
+        self.wreg(
+            ads1299::GlobalSettings::CONFIG2 as u8,
+            ads1299::INT_TEST_4HZ | ads1299::CONFIG2_const,
+        )
+        .map(map_status)?;
+
+        self.wreg(
+            ads1299::ChannelSettings::CH1SET as u8,
+            ads1299::INT_TEST_DC | ads1299::Gain::X1 as u8,
+        )
+        .map(map_status)?;
+
+        self.wreg(
+            ads1299::ChannelSettings::CH2SET as u8,
+            ads1299::SHORTED | ads1299::Gain::X1 as u8,
+        )
+        .map(map_status)?;
+
+        self.wreg(
+            ads1299::ChannelSettings::CH3SET as u8,
+            ads1299::MVDD | ads1299::Gain::X1 as u8,
+        )
+        .map(map_status)?;
+        self.wreg(
+            ads1299::ChannelSettings::CH4SET as u8,
+            ads1299::BIAS_DRN | ads1299::Gain::X1 as u8,
+        )
+        .map(map_status)?;
+        self.wreg(
+            ads1299::ChannelSettings::CH5SET as u8,
+            ads1299::BIAS_DRP | ads1299::Gain::X1 as u8,
+        )
+        .map(map_status)?;
+        self.wreg(
+            ads1299::ChannelSettings::CH6SET as u8,
+            ads1299::TEMP | ads1299::Gain::X1 as u8,
+        )
+        .map(map_status)?;
+        self.wreg(
+            ads1299::ChannelSettings::CH7SET as u8,
+            ads1299::TEST_SIGNAL | ads1299::Gain::X1 as u8,
+        )
+        .map(map_status)?;
+
+        self.disable_channel(8)?;
+        Ok(())
+    }
+
+    pub fn wreg<T>(&self, reg: u8, val: u8) -> ClientResult<T>
+    where
+        T: serde::de::DeserializeOwned + Clone,
+    {
+        debug!(target: CLIENT_TAG, "Writing {} to register {}", val, reg);
+        self.execute_json_cmd("wreg", [reg, val])
+    }
+
     pub fn disable_all_channels(&self) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling all channels");
         for chan_idx in 1..=constants::NUM_CHANNELS + 1 {
-            self.disable_channel(chan_idx as u8)?
+            self.disable_channel(chan_idx as u8)?;
         }
         Ok(())
     }
 
-    pub fn disable_channel(&self, chan_num: u8) -> ClientResult<()> {
+    pub fn disable_channel(&self, chan_num: u8) -> ClientResult<Status> {
         info!(target: CLIENT_TAG, "Disabling channel {}", chan_num);
-        let args = [
+
+        self.wreg(
             ads1299::ChannelSettings::CHnSET as u8 + chan_num,
             ads1299::PDn | ads1299::SHORTED,
-        ];
-        self.execute_json_cmd("wreg", args)?;
-        Ok(())
+        )
     }
 
     pub fn blink_test(&self, num: u32) -> IOResult<()> {
@@ -158,7 +215,7 @@ impl HackEEGClient {
         Ok(())
     }
 
-    pub fn send_json_cmd<G>(&self, cmd: &str, args: G) -> IOResult<usize>
+    pub fn send_json_cmd<G>(&self, cmd: &str, args: G) -> IOResult<()>
     where
         G: serde::Serialize,
     {
@@ -168,15 +225,17 @@ impl HackEEGClient {
             "Sending JSON command '{}'",
             to_send.trim()
         );
-        self.port.borrow_mut().write(to_send.as_bytes())
+        self.port.borrow_mut().write(to_send.as_bytes())?;
+        Ok(())
     }
 
-    pub fn send_text_cmd(&self, cmd: &str) -> IOResult<usize> {
+    pub fn send_text_cmd(&self, cmd: &str) -> IOResult<()> {
         debug!(target: CLIENT_TAG, "Sending text command '{}'", cmd);
         let mut port = self.port.borrow_mut();
         let mut full_cmd = cmd.to_string();
         full_cmd.push('\n');
-        port.write(full_cmd.as_bytes())
+        port.write(full_cmd.as_bytes())?;
+        Ok(())
     }
 
     fn read_response_line(&self) -> IOResult<String> {
@@ -211,30 +270,49 @@ impl HackEEGClient {
 
     // stop data continuous
     pub fn sdatac(&self) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "sdatac");
         let status: Status = self.execute_json_cmd("sdatac", NoArgs)?;
-        if !status.ok() {
-            return Err(status.into());
-        }
+        status.assert()?;
         self.continuous_read.set(false);
         Ok(())
     }
 
     // read data continuous
     pub fn rdatac(&self) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "rdatac");
         let status: Status = self.execute_json_cmd("rdatac", NoArgs)?;
-        if !status.ok() {
-            return Err(status.into());
-        }
+        status.assert()?;
         self.continuous_read.set(true);
+        Ok(())
+    }
+
+    pub fn start(&self) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "start");
+        let status: Status = self.execute_json_cmd("start", NoArgs)?;
+        status.assert()?;
+        Ok(())
+    }
+
+    pub fn stop(&self) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "stop");
+        let status: Status = self.execute_json_cmd("stop", NoArgs)?;
+        status.assert()?;
         Ok(())
     }
 
     pub fn read_rdatac_response(&self) -> ClientResult<sample::Payload> {
         let resp = self.read_response_line()?;
-        debug!("{}", resp);
+        debug!(target: CLIENT_TAG, "rdatac response line: {}", resp);
         let sample: commands::responses::Sample = serde_json::from_str(&resp)?;
         let payload: sample::Payload = sample.data.as_bytes().into();
         Ok(payload)
+    }
+
+    pub fn stop_and_sdatac_messagepack(&self) -> ClientResult<()> {
+        self.stop()?;
+        self.sdatac()?;
+        self.noop()?;
+        Ok(())
     }
 
     /// Ensures that the device is in the desired mode, and returns whether it had to change it
@@ -311,7 +389,7 @@ where
     } else {
         json!({
             "COMMAND": cmd,
-            "PARAMETERS": [params],
+            "PARAMETERS": params,
         })
         .to_string()
     }

@@ -4,7 +4,9 @@ use std::time::Duration;
 use clap::{App, AppSettings, Arg};
 use serialport::prelude::SerialPortSettings;
 
-use hackeeg::{client::HackEEGClient, common};
+use common::constants::ads1299;
+use hackeeg::client::commands::responses::Status;
+use hackeeg::{client::modes::Mode, client::HackEEGClient, common};
 
 const MAIN_TAG: &str = "main";
 
@@ -48,9 +50,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     settings.baud_rate = baud_rate;
     settings.timeout = Duration::from_millis(10);
 
-    let client = HackEEGClient::new(port_name, &settings)?;
+    let mut client = HackEEGClient::new(port_name, &settings)?;
+
+    client.sdatac();
+
+    let sample_mode = ads1299::Speed::HIGH_RES_500_SPS as u8 | ads1299::CONFIG1_const;
+    client
+        .wreg::<Status>(ads1299::GlobalSettings::CONFIG1 as u8, sample_mode)?
+        .assert()?;
+
+    info!(target: MAIN_TAG, "Disabling all channels");
+    client.disable_all_channels()?;
+
+    info!(target: MAIN_TAG, "Enabling channel config test");
+    client.channel_config_test()?;
+
+    // Route reference electrode to SRB1: JP8:1-2, JP7:NC (not connected)
+    // use this with humans to reduce noise
+    info!(target: MAIN_TAG, "Enabling reference electrode SRB1");
+    client
+        .wreg::<Status>(ads1299::MISC1, ads1299::SRB1 | ads1299::MISC1_const)?
+        .assert()?;
+
+    // Single-ended mode - setting SRB1 bit sends mid-supply voltage to the N inputs
+    // use this with a signal generator
+    // client.wreg(ads1299::MISC1, ads1299::SRB1)?;
+
+    // Dual-ended mode
+    info!(target: MAIN_TAG, "Setting dual-ended mode");
+    client
+        .wreg::<Status>(ads1299::MISC1, ads1299::MISC1_const)?
+        .assert()?;
+
+    // add channels into bias generation
+    // self.hackeeg.wreg(ads1299.BIAS_SENSP, ads1299.BIAS8P)
+    //
+    //    if messagepack:
+    //        self.hackeeg.messagepack_mode()
+    //    else:
+    //    self.hackeeg.jsonlines_mode()
+    //    self.hackeeg.start()
+    //    self.hackeeg.rdatac()
+
+    client.start()?;
     client.rdatac()?;
-    client.read_rdatac_response()?;
+
+    let resp = client.read_rdatac_response()?;
 
     Ok(())
 }
