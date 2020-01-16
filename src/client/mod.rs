@@ -316,14 +316,7 @@ impl HackEEGClient {
         self.noop()?;
 
         // we have to drain until EOF on the port.  i'm not totally sure why
-        match self.drain_to_eof() {
-            Ok(_) => {}
-            Err(ClientError::IOError(io_err)) => {
-                warn!(target: CLIENT_TAG, "Timed out draining, but that's ok");
-            }
-            Err(e) => return Err(e),
-        }
-
+        self.drain_to_eof()?;
         Ok(())
     }
 
@@ -331,9 +324,18 @@ impl HackEEGClient {
         debug!(target: CLIENT_TAG, "Draining port to EOF...");
         let mut port = self.port.borrow_mut();
         let mut buf = vec![];
-        let read = port.read_to_end(&mut buf)?;
-        debug!(target: CLIENT_TAG, "Drained");
-        Ok(read)
+
+        match port.read_to_end(&mut buf) {
+            Ok(amt) => {
+                debug!(target: CLIENT_TAG, "Drained {} bytes", amt);
+                Ok(amt)
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                warn!(target: CLIENT_TAG, "Timed out draining, but that's ok");
+                Ok(0)
+            }
+            Err(e) => Err(ClientError::from(e)),
+        }
     }
 
     /// Ensures that the device is in the desired mode, and returns whether it had to change it
@@ -369,6 +371,7 @@ impl HackEEGClient {
                         // notice we're ignoring the potential error result here.  if we're not
                         // in jsonlines mode already, sdatac will fail
                         self.sdatac();
+                        self.drain_to_eof()?;
                         self.send_text_cmd("jsonlines")?;
                         self.noop()?;
                     }

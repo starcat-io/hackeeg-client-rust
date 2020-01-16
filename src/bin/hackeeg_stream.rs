@@ -52,7 +52,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut client = HackEEGClient::new(port_name, &settings)?;
 
-    client.stop_and_sdatac_messagepack()?;
     client.blink_board_led()?;
 
     let sample_mode = ads1299::Speed::HIGH_RES_500_SPS as u8 | ads1299::CONFIG1_const;
@@ -82,16 +81,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     client
         .wreg::<Status>(ads1299::MISC1, ads1299::MISC1_const)?
         .assert()?;
-
-    // add channels into bias generation
-    // self.hackeeg.wreg(ads1299.BIAS_SENSP, ads1299.BIAS8P)
-    //
-    //    if messagepack:
-    //        self.hackeeg.messagepack_mode()
-    //    else:
-    //    self.hackeeg.jsonlines_mode()
-    //    self.hackeeg.start()
-    //    self.hackeeg.rdatac()
 
     client.start()?;
     client.rdatac()?;
