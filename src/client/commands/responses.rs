@@ -31,6 +31,8 @@ impl From<Status> for Box<dyn std::error::Error> {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Sample {
-    #[serde(rename = "DATA")]
+    #[serde(rename = "C")]
+    pub code: u32,
+    #[serde(rename = "D")]
     pub data: String,
 }

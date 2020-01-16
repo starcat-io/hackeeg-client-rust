@@ -1,4 +1,4 @@
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use lsl_sys;
 use serde_json::json;
 use serialport::prelude::*;
@@ -43,7 +43,7 @@ impl HackEEGClient {
             target: CLIENT_TAG,
             "Creating client connection to {}", port_name
         );
-        let port = serialport::open_with_settings(port_name, settings)?;
+        let mut port = serialport::open_with_settings(port_name, settings)?;
 
         // construct our client
         let mut client = Self {
@@ -177,7 +177,7 @@ impl HackEEGClient {
         )
     }
 
-    pub fn blink_test(&self, num: u32) -> IOResult<()> {
+    pub fn blink_test(&self, num: u32) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Starting blink test.");
         let sleep = || std::thread::sleep(std::time::Duration::from_millis(100));
         for i in 0..num {
@@ -203,29 +203,25 @@ impl HackEEGClient {
         }
     }
 
-    pub fn board_led_on(&self) -> IOResult<()> {
+    pub fn board_led_on(&self) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Turning board LED on");
-        self.send_json_cmd("boardledon", NoArgs)?;
+        let status: Status = self.execute_json_cmd("boardledon", NoArgs)?;
+        status.assert()?;
         Ok(())
     }
 
-    pub fn board_led_off(&self) -> IOResult<()> {
+    pub fn board_led_off(&self) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Turning board LED off");
-        self.send_json_cmd("boardledoff", NoArgs)?;
+        let status: Status = self.execute_json_cmd("boardledoff", NoArgs)?;
+        status.assert()?;
         Ok(())
     }
 
-    pub fn send_json_cmd<G>(&self, cmd: &str, args: G) -> IOResult<()>
-    where
-        G: serde::Serialize,
-    {
-        let to_send = json_cmd_line(cmd, args);
-        debug!(
-            target: CLIENT_TAG,
-            "Sending JSON command '{}'",
-            to_send.trim()
-        );
-        self.port.borrow_mut().write(to_send.as_bytes())?;
+    pub fn blink_board_led(&self) -> ClientResult<()> {
+        info!(target: CLIENT_TAG, "Blinking board LED");
+        self.board_led_on()?;
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        self.board_led_off()?;
         Ok(())
     }
 
@@ -235,6 +231,9 @@ impl HackEEGClient {
         let mut full_cmd = cmd.to_string();
         full_cmd.push('\n');
         port.write(full_cmd.as_bytes())?;
+
+        drop(port);
+        self.read_response_line()?;
         Ok(())
     }
 
@@ -259,7 +258,9 @@ impl HackEEGClient {
             target: CLIENT_TAG,
             "Executing JSON command '{}' and then reading response", cmd
         );
-        self.send_json_cmd(cmd, args)?;
+
+        let to_send = json_cmd_line(cmd, args);
+        self.port.borrow_mut().write(to_send.as_bytes())?;
 
         let mut buf = vec![0; 1024];
         let resp = self.read_response_line()?;
@@ -302,9 +303,10 @@ impl HackEEGClient {
 
     pub fn read_rdatac_response(&self) -> ClientResult<sample::Payload> {
         let resp = self.read_response_line()?;
-        debug!(target: CLIENT_TAG, "rdatac response line: {}", resp);
+        trace!(target: CLIENT_TAG, "Raw rdatac response line: {}", resp);
         let sample: commands::responses::Sample = serde_json::from_str(&resp)?;
-        let payload: sample::Payload = sample.data.as_bytes().into();
+        let decoded = base64::decode(sample.data.as_bytes())?;
+        let payload: sample::Payload = decoded.as_slice().into();
         Ok(payload)
     }
 
@@ -312,7 +314,26 @@ impl HackEEGClient {
         self.stop()?;
         self.sdatac()?;
         self.noop()?;
+
+        // we have to drain until EOF on the port.  i'm not totally sure why
+        match self.drain_to_eof() {
+            Ok(_) => {}
+            Err(ClientError::IOError(io_err)) => {
+                warn!(target: CLIENT_TAG, "Timed out draining, but that's ok");
+            }
+            Err(e) => return Err(e),
+        }
+
         Ok(())
+    }
+
+    pub fn drain_to_eof(&self) -> ClientResult<usize> {
+        debug!(target: CLIENT_TAG, "Draining port to EOF...");
+        let mut port = self.port.borrow_mut();
+        let mut buf = vec![];
+        let read = port.read_to_end(&mut buf)?;
+        debug!(target: CLIENT_TAG, "Drained");
+        Ok(read)
     }
 
     /// Ensures that the device is in the desired mode, and returns whether it had to change it
@@ -344,7 +365,7 @@ impl HackEEGClient {
                         self.send_text_cmd("messagepack")?;
                     }
                     Mode::Text | Mode::Unknown => {
-                        self.send_json_cmd("stop", NoArgs)?;
+                        self.stop();
                         // notice we're ignoring the potential error result here.  if we're not
                         // in jsonlines mode already, sdatac will fail
                         self.sdatac();
@@ -358,7 +379,8 @@ impl HackEEGClient {
                         self.send_text_cmd("jsonlines")?;
                     }
                     Mode::Text => {
-                        self.send_json_cmd("text", NoArgs)?;
+                        let status: Status = self.execute_json_cmd("text", NoArgs)?;
+                        status.assert()?;
                     }
                     _ => unreachable!(),
                 },

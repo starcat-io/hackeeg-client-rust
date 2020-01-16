@@ -52,7 +52,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut client = HackEEGClient::new(port_name, &settings)?;
 
-    client.sdatac();
+    client.stop_and_sdatac_messagepack()?;
+    client.blink_board_led()?;
 
     let sample_mode = ads1299::Speed::HIGH_RES_500_SPS as u8 | ads1299::CONFIG1_const;
     client
@@ -95,7 +96,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     client.start()?;
     client.rdatac()?;
 
-    let resp = client.read_rdatac_response()?;
+    loop {
+        let resp = client.read_rdatac_response()?;
+        let ch = resp.channels;
+        println!(
+            "{} @ {}: [{}, {}, {}, {}, {}, {}, {}, {}]",
+            resp.sample_number,
+            resp.timestamp,
+            ch[0].sample,
+            ch[1].sample,
+            ch[2].sample,
+            ch[3].sample,
+            ch[4].sample,
+            ch[5].sample,
+            ch[6].sample,
+            ch[7].sample
+        );
+    }
 
     Ok(())
 }

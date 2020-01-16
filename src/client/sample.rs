@@ -1,28 +1,28 @@
 use crate::common::constants::NUM_CHANNELS;
+use byteorder::ByteOrder;
 use std::convert::TryInto;
 
 #[derive(Copy, Clone)]
 pub struct Channel {
-    sample: i32,
+    pub sample: i32,
 }
 
 impl From<&[u8]> for Channel {
     fn from(data: &[u8]) -> Self {
-        // each sample data is signed 24 bit
-        let sample = i32::from_be_bytes(data[0..4].try_into().unwrap()) >> 1;
+        let sample = byteorder::BigEndian::read_i24(data);
         Self { sample }
     }
 }
 
 pub struct Payload {
-    timestamp: chrono::DateTime<chrono::Utc>,
-    sample_number: u32,
-    ads_status: u32,
-    ads_gpio: u8,
-    loff_statn: u8,
-    loff_statp: u8,
-    extra: u8,
-    channels: [Channel; NUM_CHANNELS],
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub sample_number: u32,
+    pub ads_status: u32,
+    pub ads_gpio: u8,
+    pub loff_statn: u8,
+    pub loff_statp: u8,
+    pub extra: u8,
+    pub channels: [Channel; NUM_CHANNELS],
 }
 
 impl From<&[u8]> for Payload {
