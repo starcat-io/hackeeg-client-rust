@@ -15,7 +15,7 @@ impl From<&[u8]> for Channel {
 }
 
 pub struct Payload {
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub timestamp: u32,
     pub sample_number: u32,
     pub ads_status: u32,
     pub ads_gpio: u8,
@@ -27,10 +27,7 @@ pub struct Payload {
 
 impl From<&[u8]> for Payload {
     fn from(data: &[u8]) -> Self {
-        let timestamp_secs = u32::from_le_bytes(data[0..4].try_into().unwrap()) as i64;
-        let naive_dt = chrono::NaiveDateTime::from_timestamp(timestamp_secs, 0);
-        let utc_dt = chrono::DateTime::from_utc(naive_dt, chrono::Utc);
-
+        let timestamp = u32::from_le_bytes(data[0..4].try_into().unwrap());
         let sample_number = u32::from_le_bytes(data[4..8].try_into().unwrap());
 
         // we shift by 1 because ads_status is technically 3 big endian bytes, but from_be_bytes
@@ -50,7 +47,7 @@ impl From<&[u8]> for Payload {
         }
 
         Self {
-            timestamp: utc_dt,
+            timestamp,
             sample_number,
             ads_status,
             ads_gpio,
