@@ -1,11 +1,22 @@
+use flate2::read::GzDecoder;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tar::Archive;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
     let package_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
-    let lsl_dir = package_dir.join("liblsl-1.13.0-b14");
-    let lsl_build_dir = out_dir.join("lsl_build");
+
+    let lsl_dir = out_dir.join("liblsl-1.13.0-b14");
+    let lsl_build_dir = lsl_dir.join("build");
+
+    if !lsl_dir.exists() {
+        let tar_gz = File::open(package_dir.join("liblsl-1.13.0-b14.tar.gz"))?;
+        let tar = GzDecoder::new(tar_gz);
+        let mut archive = Archive::new(tar);
+        archive.unpack(&out_dir)?;
+    }
 
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=wrapper.h");
@@ -39,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .generate()
         .expect("Unable to generate bindings");
 
-    let lsl_binding = Path::new("bindings.rs");
+    let lsl_binding = Path::new("lsl_bindings.rs");
     bindings
         .write_to_file(out_dir.join(lsl_binding))
         .expect("Couldn't write bindings!");
