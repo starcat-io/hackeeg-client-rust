@@ -34,7 +34,7 @@ impl From<ffi::NulError> for Error {
 }
 
 #[derive(Copy, Clone)]
-pub enum ChannelFormat {
+enum ChannelFormat {
     Undefined = 0,
     Float32,
     Double64,
@@ -45,18 +45,19 @@ pub enum ChannelFormat {
     Int64,
 }
 
-pub struct StreamInfo {
+pub struct StreamInfo<Format> {
     handle: bindings::lsl_streaminfo,
+    phantom: PhantomData<Format>,
 }
 
-impl StreamInfo {
-    pub fn new(
+impl<Format> StreamInfo<Format> {
+    fn real_new(
         name: &str,
         stream_type: &str,
         channel_count: i32,
         nominal_srate: f64,
-        channel_format: &ChannelFormat,
         source_id: &str,
+        channel_format: ChannelFormat,
     ) -> Result<Self> {
         let name_cstring = ffi::CString::new(name)?;
         let stream_cstring = ffi::CString::new(stream_type)?;
@@ -67,26 +68,43 @@ impl StreamInfo {
                 ffi::CString::new(stream_type)?.into_raw(),
                 channel_count,
                 nominal_srate,
-                *channel_format as bindings::lsl_channel_format_t,
+                channel_format as bindings::lsl_channel_format_t,
                 ffi::CString::new(source_id)?.into_raw(),
             );
             if handle.is_null() {
                 Err(Error::StreamConstructionErr)
             } else {
-                Ok(Self { handle })
+                Ok(Self {
+                    handle,
+                    phantom: PhantomData,
+                })
             }
         }
     }
 }
 
-trait PushOutlet<Push> {
-    fn push_chunk(&self, data: &[Push], num_elements: u64, timestamp: f64) -> i32;
+impl StreamInfo<i32> {
+    pub fn new(
+        name: &str,
+        stream_type: &str,
+        channel_count: i32,
+        nominal_srate: f64,
+        source_id: &str,
+    ) -> Result<Self> {
+        StreamInfo::real_new(
+            name,
+            stream_type,
+            channel_count,
+            nominal_srate,
+            source_id,
+            ChannelFormat::Int32,
+        )
+    }
 }
 
-pub struct Outlet<Push> {
-    info: StreamInfo,
+pub struct Outlet<Format> {
+    info: StreamInfo<Format>,
     handle: bindings::lsl_outlet,
-    phantom: PhantomData<Push>,
 }
 
 impl Outlet<i32> {
@@ -105,24 +123,20 @@ impl Outlet<f32> {
     }
 }
 
-impl<Push> Outlet<Push> {
-    pub fn new(info: StreamInfo, chunk_size: i32, max_buffered: i32) -> Result<Self> {
+impl<Format> Outlet<Format> {
+    pub fn new(info: StreamInfo<Format>, chunk_size: i32, max_buffered: i32) -> Result<Self> {
         unsafe {
             let handle = bindings::lsl_create_outlet(info.handle, chunk_size, max_buffered);
             if handle.is_null() {
                 Err(Error::OutletConstructionErr)
             } else {
-                Ok(Self {
-                    info,
-                    handle,
-                    phantom: PhantomData,
-                })
+                Ok(Self { info, handle })
             }
         }
     }
 }
 
-impl<Push> Drop for Outlet<Push> {
+impl<Format> Drop for Outlet<Format> {
     fn drop(&mut self) {
         unsafe {
             bindings::lsl_destroy_outlet(self.handle);

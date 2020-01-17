@@ -8,7 +8,6 @@ use common::constants::ads1299;
 use hackeeg::client::commands::responses::Status;
 use hackeeg::common::constants::NUM_CHANNELS;
 use hackeeg::{client::modes::Mode, client::HackEEGClient, common};
-use lsl_sys::ChannelFormat;
 
 const MAIN_TAG: &str = "main";
 
@@ -97,15 +96,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .to_simple()
         .to_string();
 
-    let stream_info = lsl_sys::StreamInfo::new(
+    let stream_info = lsl_sys::StreamInfo::<i32>::new(
         stream_name,
         stream_type,
         NUM_CHANNELS as i32,
         sps as f64,
-        &ChannelFormat::Int32,
         &stream_id,
     )?;
-    let outlet: lsl_sys::Outlet<i32> = lsl_sys::Outlet::new(stream_info, 0, 360)?;
+    let outlet = lsl_sys::Outlet::new(stream_info, 0, 360)?;
 
     loop {
         let resp = client.read_rdatac_response()?;
