@@ -10,6 +10,7 @@ use hackeeg::common::constants::NUM_CHANNELS;
 use hackeeg::{client::modes::Mode, client::HackEEGClient, common};
 
 const MAIN_TAG: &str = "main";
+const DEFAULT_STREAM_NAME: &str = "HackEEG";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = App::new("HackEEG Streamer")
@@ -24,15 +25,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .arg(
             Arg::with_name("port")
                 .help("The device path to a serial port")
-                .use_delimiter(false)
                 .required(true),
         )
         .arg(
             Arg::with_name("baud")
                 .help("The baud rate to connect at")
-                .use_delimiter(false)
                 .default_value("115200")
                 .required(true),
+        )
+        .arg(
+            Arg::with_name("sps")
+                .short("s")
+                .long("--sps")
+                .help("Samples per second")
+                .default_value("500"),
+        )
+        .arg(
+            Arg::with_name("lsl")
+                .short("L")
+                .long("lsl")
+                .help("Send samples to an LSL stream instead of terminal"),
+        )
+        .arg(
+            Arg::with_name("lsl_stream_name")
+                .short("N")
+                .long("lsl-stream-name")
+                .help("Name of LSL stream to create")
+                .default_value(DEFAULT_STREAM_NAME),
+        )
+        .arg(
+            Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .help("Quiet mode: do not print sample data (used for performance testing)"),
         )
         .get_matches();
 
@@ -43,6 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let port_name = matches.value_of("port").unwrap();
     let baud_rate = matches.value_of("baud").unwrap().parse::<u32>()?;
+    let sps = matches.value_of("sps").unwrap().parse::<u32>()?;
 
     common::log::setup_logger(log_level, None)?;
 
@@ -54,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     client.blink_board_led()?;
 
-    let sample_mode = ads1299::Speed::HIGH_RES_500_SPS as u8 | ads1299::CONFIG1_const;
+    let sample_mode = ads1299::Speed::from(sps) as u8 | ads1299::CONFIG1_const;
     client
         .wreg::<Status>(ads1299::GlobalSettings::CONFIG1 as u8, sample_mode)?
         .assert()?;
@@ -85,45 +111,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     client.start()?;
     client.rdatac()?;
 
-    let sps = 500; // FIXME
+    let mut maybe_outlet: Option<lsl_sys::Outlet<i32>> = None;
 
-    let stream_name = "HackEEG";
-    let stream_type = "EEG";
+    if matches.is_present("lsl") {
+        let stream_name = matches.value_of("lsl_stream_name").unwrap();
+        let stream_type = "EEG";
+        // derive our uuid from name-type-num_channels
+        let uuid_name = format!("{}-{}-{}", stream_name, stream_type, NUM_CHANNELS);
+        let stream_id = uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, uuid_name.as_bytes())
+            .to_simple()
+            .to_string();
 
-    // derive our uuid from name-type-num_channels
-    let uuid_name = format!("{}-{}-{}", stream_name, stream_type, NUM_CHANNELS);
-    let stream_id = uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, uuid_name.as_bytes())
-        .to_simple()
-        .to_string();
+        let stream_info = lsl_sys::StreamInfo::<i32>::new(
+            stream_name,
+            stream_type,
+            NUM_CHANNELS as i32,
+            sps as f64,
+            &stream_id,
+        )?;
+        maybe_outlet = Some(lsl_sys::Outlet::new(stream_info, 0, 360)?);
+    }
 
-    let stream_info = lsl_sys::StreamInfo::<i32>::new(
-        stream_name,
-        stream_type,
-        NUM_CHANNELS as i32,
-        sps as f64,
-        &stream_id,
-    )?;
-    let outlet = lsl_sys::Outlet::new(stream_info, 0, 360)?;
+    let quiet = matches.is_present("quiet");
 
     loop {
         let resp = client.read_rdatac_response()?;
         let ch = resp.channels;
 
-        outlet.push_chunk(resp.as_lsl_data().as_slice(), resp.timestamp as f64);
+        if !quiet {
+            println!(
+                "{} @ {}: [{}, {}, {}, {}, {}, {}, {}, {}]",
+                resp.sample_number,
+                resp.timestamp,
+                ch[0].sample,
+                ch[1].sample,
+                ch[2].sample,
+                ch[3].sample,
+                ch[4].sample,
+                ch[5].sample,
+                ch[6].sample,
+                ch[7].sample
+            );
+        }
 
-        println!(
-            "{} @ {}: [{}, {}, {}, {}, {}, {}, {}, {}]",
-            resp.sample_number,
-            resp.timestamp,
-            ch[0].sample,
-            ch[1].sample,
-            ch[2].sample,
-            ch[3].sample,
-            ch[4].sample,
-            ch[5].sample,
-            ch[6].sample,
-            ch[7].sample
-        );
+        if let Some(ref outlet) = maybe_outlet {
+            outlet.push_chunk(resp.as_lsl_data().as_slice(), resp.timestamp as f64);
+        }
     }
 
     Ok(())

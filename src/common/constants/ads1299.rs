@@ -67,6 +67,21 @@ pub enum Speed {
     HIGH_RES_250_SPS = 0x06,
 }
 
+impl From<u32> for Speed {
+    fn from(num: u32) -> Self {
+        match num {
+            250 => Speed::HIGH_RES_250_SPS,
+            500 => Speed::HIGH_RES_500_SPS,
+            1000 => Speed::HIGH_RES_1k_SPS,
+            2000 => Speed::HIGH_RES_2k_SPS,
+            4000 => Speed::HIGH_RES_4k_SPS,
+            8000 => Speed::HIGH_RES_8k_SPS,
+            16000 => Speed::HIGH_RES_16k_SPS,
+            _ => panic!("Invalid speed"),
+        }
+    }
+}
+
 // TODO do the rest of these.  not all of them are classified into enums, like the above.  where
 // grouping together into an enum doesn't make sense, use a const
 
