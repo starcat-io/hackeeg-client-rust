@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Command::new("make")
         .current_dir(&lsl_build_dir)
-        .arg(format!("-j{}", num_cpus::get() - 1))
+        //.arg(format!("-j{}", num_cpus::get() - 1))
         .spawn()?
         .wait();
 
