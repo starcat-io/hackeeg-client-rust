@@ -87,10 +87,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     client.rdatac()?;
 
     let sps = 500; // FIXME
-    let stream_id = uuid::Uuid::new_v4().to_simple().to_string();
+
+    let stream_name = "HackEEG";
+    let stream_type = "EEG";
+
+    // derive our uuid from name-type-num_channels
+    let uuid_name = format!("{}-{}-{}", stream_name, stream_type, NUM_CHANNELS);
+    let stream_id = uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, uuid_name.as_bytes())
+        .to_simple()
+        .to_string();
+
     let stream_info = lsl_sys::StreamInfo::new(
-        "HackEEG",
-        "EEG",
+        stream_name,
+        stream_type,
         NUM_CHANNELS as i32,
         sps as f64,
         &ChannelFormat::Int32,
