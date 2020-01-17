@@ -27,5 +27,5 @@ name = "hackeeg"
 path = "src/lib.rs"
 
 [[bin]]
-name = "hackeeg_stream"
+name = "hackeeg-stream"
 path = "src/bin/hackeeg_stream.rs"

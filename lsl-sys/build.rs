@@ -19,8 +19,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     Command::new("cmake")
         .arg(&lsl_dir)
-        .arg("-DLSL_BUILD_STATIC")
-        .arg("-DBOOST_ALL_NO_LIB")
+        .arg("-DLSL_BUILD_STATIC=1")
+        .arg("-DBOOST_ALL_NO_LIB=1")
         .current_dir(&lsl_build_dir)
         .spawn()?
         .wait();

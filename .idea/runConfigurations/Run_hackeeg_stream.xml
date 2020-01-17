@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run hackeeg_stream" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="channel" value="DEFAULT" />
-    <option name="command" value="run --package hackeeg-client-rust --bin hackeeg_stream -- -v /dev/arduino 2000000 --lsl" />
+    <option name="command" value="run --package hackeeg-client-rust --bin hackeeg-stream -- -v /dev/arduino 2000000 --lsl" />
     <option name="allFeatures" value="false" />
     <option name="nocapture" value="false" />
     <option name="emulateTerminal" value="false" />
