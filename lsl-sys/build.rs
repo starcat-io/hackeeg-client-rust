@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let lsl_dir = out_dir.join("liblsl-1.13.0-b14");
     let lsl_build_dir = lsl_dir.join("build");
+    let lsl_include_dir = lsl_dir.join("include");
 
     if !lsl_dir.exists() {
         let tar_gz = File::open(package_dir.join("liblsl-1.13.0-b14.tar.gz"))?;
@@ -43,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .wait();
 
     let bindings = bindgen::Builder::default()
+        .clang_arg(format!("-I{}", lsl_include_dir.display()))
         .header("wrapper.h")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
