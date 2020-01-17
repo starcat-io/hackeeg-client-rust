@@ -10,4 +10,5 @@ links = "lsl"
 [dependencies]
 
 [build-dependencies]
+num_cpus = "1.12.0"
 bindgen = "0.52.0"

@@ -6,7 +6,9 @@ use serialport::prelude::SerialPortSettings;
 
 use common::constants::ads1299;
 use hackeeg::client::commands::responses::Status;
+use hackeeg::common::constants::NUM_CHANNELS;
 use hackeeg::{client::modes::Mode, client::HackEEGClient, common};
+use lsl_sys::ChannelFormat;
 
 const MAIN_TAG: &str = "main";
 
@@ -40,7 +42,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         1 => log::LevelFilter::Debug,
         _ => log::LevelFilter::Trace,
     };
-
     let port_name = matches.value_of("port").unwrap();
     let baud_rate = matches.value_of("baud").unwrap().parse::<u32>()?;
 
@@ -85,9 +86,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     client.start()?;
     client.rdatac()?;
 
+    let sps = 500; // FIXME
+    let stream_id = uuid::Uuid::new_v4().to_simple().to_string();
+    let stream_info = lsl_sys::StreamInfo::new(
+        "HackEEG",
+        "EEG",
+        NUM_CHANNELS as i32,
+        sps as f64,
+        &ChannelFormat::Int32,
+        &stream_id,
+    )?;
+    let outlet: lsl_sys::Outlet<i32> = lsl_sys::Outlet::new(stream_info, 0, 360)?;
+
     loop {
         let resp = client.read_rdatac_response()?;
         let ch = resp.channels;
+
+        outlet.push_chunk(resp.as_lsl_data().as_slice(), resp.timestamp as f64);
+
         println!(
             "{} @ {}: [{}, {}, {}, {}, {}, {}, {}, {}]",
             resp.sample_number,

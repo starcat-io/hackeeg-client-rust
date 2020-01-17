@@ -20,6 +20,7 @@ chrono = "0.4.10"
 rmp-serde = "0.14.0"
 base64 = "0.11.0"
 byteorder = "1.3.2"
+uuid = {version= "0.8.1", features=["v4"]}
 
 [lib]
 name = "hackeeg"

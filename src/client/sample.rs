@@ -25,6 +25,21 @@ pub struct Payload {
     pub channels: [Channel; NUM_CHANNELS],
 }
 
+impl Payload {
+    pub fn as_lsl_data(&self) -> Vec<i32> {
+        vec![
+            self.channels[0].sample,
+            self.channels[1].sample,
+            self.channels[2].sample,
+            self.channels[3].sample,
+            self.channels[4].sample,
+            self.channels[5].sample,
+            self.channels[6].sample,
+            self.channels[7].sample,
+        ]
+    }
+}
+
 impl From<&[u8]> for Payload {
     fn from(data: &[u8]) -> Self {
         let timestamp = u32::from_le_bytes(data[0..4].try_into().unwrap());

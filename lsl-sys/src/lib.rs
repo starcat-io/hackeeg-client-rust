@@ -1,6 +1,8 @@
 use std::alloc::handle_alloc_error;
 use std::ffi;
 use std::ffi::NulError;
+use std::fmt::Formatter;
+use std::marker::PhantomData;
 
 #[allow(
     non_camel_case_types,
@@ -10,10 +12,19 @@ use std::ffi::NulError;
 )]
 mod bindings;
 
+#[derive(Debug)]
 pub enum Error {
     StreamConstructionErr,
     OutletConstructionErr,
 }
+
+impl std::error::Error for Error {}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        unimplemented!()
+    }
+}
+
 type Result<T> = std::result::Result<T, Error>;
 
 impl From<ffi::NulError> for Error {
@@ -72,37 +83,46 @@ trait PushOutlet<Push> {
     fn push_chunk(&self, data: &[Push], num_elements: u64, timestamp: f64) -> i32;
 }
 
-pub struct Outlet {
+pub struct Outlet<Push> {
     info: StreamInfo,
     handle: bindings::lsl_outlet,
+    phantom: PhantomData<Push>,
 }
 
-impl PushOutlet<i32> for Outlet {
-    fn push_chunk(&self, data: &[i32], num_elements: u64, timestamp: f64) -> i32 {
-        unsafe { bindings::lsl_push_chunk_it(self.handle, data.as_ptr(), num_elements, timestamp) }
+impl Outlet<i32> {
+    pub fn push_chunk(&self, data: &[i32], timestamp: f64) -> i32 {
+        unsafe {
+            bindings::lsl_push_chunk_it(self.handle, data.as_ptr(), data.len() as u64, timestamp)
+        }
     }
 }
 
-impl PushOutlet<f32> for Outlet {
-    fn push_chunk(&self, data: &[f32], num_elements: u64, timestamp: f64) -> i32 {
-        unsafe { bindings::lsl_push_chunk_ft(self.handle, data.as_ptr(), num_elements, timestamp) }
+impl Outlet<f32> {
+    pub fn push_chunk(&self, data: &[f32], timestamp: f64) -> i32 {
+        unsafe {
+            bindings::lsl_push_chunk_ft(self.handle, data.as_ptr(), data.len() as u64, timestamp)
+        }
     }
 }
 
-impl Outlet {
+impl<Push> Outlet<Push> {
     pub fn new(info: StreamInfo, chunk_size: i32, max_buffered: i32) -> Result<Self> {
         unsafe {
             let handle = bindings::lsl_create_outlet(info.handle, chunk_size, max_buffered);
             if handle.is_null() {
                 Err(Error::OutletConstructionErr)
             } else {
-                Ok(Self { info, handle })
+                Ok(Self {
+                    info,
+                    handle,
+                    phantom: PhantomData,
+                })
             }
         }
     }
 }
 
-impl Drop for Outlet {
+impl<Push> Drop for Outlet<Push> {
     fn drop(&mut self) {
         unsafe {
             bindings::lsl_destroy_outlet(self.handle);
