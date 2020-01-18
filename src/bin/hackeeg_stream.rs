@@ -61,6 +61,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .long("quiet")
                 .help("Quiet mode: do not print sample data (used for performance testing)"),
         )
+        .arg(
+            Arg::with_name("samples")
+                .short("S")
+                .long("samples")
+                .help("How many samples to capture")
+                .takes_value(true),
+        )
         .get_matches();
 
     let log_level = match matches.occurrences_of("verbosity") {
@@ -140,6 +147,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let start = std::time::Instant::now();
     let mut counter: u64 = 0;
+    let max_samples = match matches.value_of("samples") {
+        Some(samples_str) => samples_str.parse::<u64>()?,
+        None => 0,
+    };
 
     loop {
         let resp = client.read_rdatac_response()?;
@@ -167,14 +178,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         counter += 1;
 
+        if max_samples > 0 && counter >= max_samples {
+            info!(
+                target: MAIN_TAG,
+                "Reached {} samples, breaking", max_samples
+            );
+            break;
+        }
+
         if sigint.load(Ordering::Relaxed) {
+            info!(target: MAIN_TAG, "Got SIGINT, breaking read loop");
             break;
         }
     }
 
     let elapsed = start.elapsed();
-    println!(
-        "\n{} samples in {} seconds, or {}/s",
+    info!(
+        "{} samples in {} seconds, or {}/s",
         counter,
         elapsed.as_secs_f32(),
         counter as f32 / elapsed.as_secs_f32()
