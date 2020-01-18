@@ -8,6 +8,8 @@ use common::constants::ads1299;
 use hackeeg::client::commands::responses::Status;
 use hackeeg::common::constants::NUM_CHANNELS;
 use hackeeg::{client::modes::Mode, client::HackEEGClient, common};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 const MAIN_TAG: &str = "main";
 const DEFAULT_STREAM_NAME: &str = "HackEEG";
@@ -133,6 +135,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let quiet = matches.is_present("quiet");
+    let sigint = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&sigint))?;
+
+    let start = std::time::Instant::now();
+    let mut counter: u64 = 0;
 
     loop {
         let resp = client.read_rdatac_response()?;
@@ -157,7 +164,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(ref outlet) = maybe_outlet {
             outlet.push_chunk(resp.as_lsl_data().as_slice(), resp.timestamp as f64);
         }
+
+        counter += 1;
+
+        if sigint.load(Ordering::Relaxed) {
+            break;
+        }
     }
+
+    let elapsed = start.elapsed();
+    println!(
+        "\n{} samples in {} seconds, or {}/s",
+        counter,
+        elapsed.as_secs_f32(),
+        counter as f32 / elapsed.as_secs_f32()
+    );
 
     Ok(())
 }
