@@ -6,7 +6,7 @@ use serialport::Result as SerialResult;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::io::Result as IOResult;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::time::Duration;
 
 pub mod commands;
@@ -20,17 +20,13 @@ use commands::args::NoArgs;
 use constants::ads1299;
 use err::ClientError;
 use modes::Mode;
+use std::ops::Deref;
 
 const CLIENT_TAG: &str = "hackeeg_client";
 
-struct Port {
-    raw_port: Box<dyn SerialPort>,
-    reader: BufReader<Box<dyn SerialPort>>,
-}
-
 pub struct HackEEGClient {
     port_name: String,
-    port: RefCell<Box<dyn SerialPort>>,
+    port: RefCell<BufReader<Box<dyn SerialPort>>>,
     mode: Mode,
     continuous_read: Cell<bool>,
 }
@@ -48,7 +44,7 @@ impl HackEEGClient {
         // construct our client
         let mut client = Self {
             port_name: port_name.to_string(),
-            port: RefCell::new(port),
+            port: RefCell::new(BufReader::new(port)),
             mode: Mode::Unknown,
             continuous_read: Cell::new(false),
         };
@@ -230,7 +226,7 @@ impl HackEEGClient {
         let mut port = self.port.borrow_mut();
         let mut full_cmd = cmd.to_string();
         full_cmd.push('\n');
-        port.write(full_cmd.as_bytes())?;
+        port.get_mut().write(full_cmd.as_bytes())?;
 
         drop(port);
         self.read_response_line()?;
@@ -239,10 +235,8 @@ impl HackEEGClient {
 
     fn read_response_line(&self) -> IOResult<String> {
         let mut port = self.port.borrow_mut();
-        let mut reader = BufReader::new(port.as_mut());
         let mut buf = String::new();
-        reader.read_line(&mut buf)?;
-
+        port.read_line(&mut buf);
         Ok(buf)
     }
 
@@ -260,7 +254,7 @@ impl HackEEGClient {
         );
 
         let to_send = json_cmd_line(cmd, args);
-        self.port.borrow_mut().write(to_send.as_bytes())?;
+        self.port.borrow_mut().get_mut().write(to_send.as_bytes())?;
 
         let mut buf = vec![0; 1024];
         let resp = self.read_response_line()?;
