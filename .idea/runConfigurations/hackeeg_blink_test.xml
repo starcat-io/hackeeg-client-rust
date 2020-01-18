@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Run hackeeg-client-rust" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+  <configuration default="false" name="hackeeg blink test" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="channel" value="DEFAULT" />
-    <option name="command" value="run --package hackeeg-client-rust --bin hackeeg-client-rust /dev/ttyACM0 115200" />
+    <option name="command" value="run --package hackeeg-client-rust --bin hackeeg-client-rust -- -vv /dev/ttyACM0 115200" />
     <option name="allFeatures" value="false" />
     <option name="nocapture" value="false" />
     <option name="emulateTerminal" value="false" />

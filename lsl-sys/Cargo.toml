@@ -1,0 +1,16 @@
+[package]
+name = "lsl-sys"
+version = "0.1.0"
+authors = ["Andrew Moffat <arwmoffat@gmail.com>"]
+edition = "2018"
+links = "lsl"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[build-dependencies]
+num_cpus = "1.12.0"
+bindgen = "0.52.0"
+flate2 = "1.0.13"
+tar = "0.4.26"

@@ -1,4 +1,2 @@
-use serde::Serialize;
-
-#[derive(Serialize, Debug)]
-struct Command {}
+pub mod args;
+pub mod responses;

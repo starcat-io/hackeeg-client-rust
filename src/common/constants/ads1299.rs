@@ -1,6 +1,10 @@
 #![allow(non_camel_case_types)]
 //! ADS1299 constants
 
+use serde::export::fmt::Error;
+use serde::export::Formatter;
+use std::fmt;
+
 pub enum SystemCommands {
     WAKEUP = 0x02,
     STANDBY = 0x04,
@@ -53,11 +57,36 @@ pub enum LeadOffStatus {
     LOFF_STATN = 0x13,
 }
 
+pub enum Speed {
+    HIGH_RES_16k_SPS = 0x00,
+    HIGH_RES_8k_SPS = 0x01,
+    HIGH_RES_4k_SPS = 0x02,
+    HIGH_RES_2k_SPS = 0x03,
+    HIGH_RES_1k_SPS = 0x04,
+    HIGH_RES_500_SPS = 0x05,
+    HIGH_RES_250_SPS = 0x06,
+}
+
+impl From<u32> for Speed {
+    fn from(num: u32) -> Self {
+        match num {
+            250 => Speed::HIGH_RES_250_SPS,
+            500 => Speed::HIGH_RES_500_SPS,
+            1000 => Speed::HIGH_RES_1k_SPS,
+            2000 => Speed::HIGH_RES_2k_SPS,
+            4000 => Speed::HIGH_RES_4k_SPS,
+            8000 => Speed::HIGH_RES_8k_SPS,
+            16000 => Speed::HIGH_RES_16k_SPS,
+            _ => panic!("Invalid speed"),
+        }
+    }
+}
+
 // TODO do the rest of these.  not all of them are classified into enums, like the above.  where
 // grouping together into an enum doesn't make sense, use a const
 
 //GPIO = 0x14
-//MISC1 = 0x15
+pub const MISC1: u8 = 0x15;
 //RESP = 0x16
 //CONFIG4 = 0x17
 //WCT1 = 0x18
@@ -90,29 +119,18 @@ pub enum LeadOffStatus {
 //HR = 0x80
 //DAISY_EN = 0x40
 //CLK_EN = 0x20
-//DR2 = 0x04
-//DR1 = 0x02
-//DR0 = 0x01
-//
-//CONFIG1_const = 0x90
-//HIGH_RES_16k_SPS = 0x00
-//HIGH_RES_8k_SPS = (DR0)
-//HIGH_RES_4k_SPS = (DR1)
-//HIGH_RES_2k_SPS = (DR1 | DR0)
-//HIGH_RES_1k_SPS = (DR2)
-//HIGH_RES_500_SPS = (DR2 | DR0)
-//HIGH_RES_250_SPS = (DR2 | DR1)
-//
+
 //WCT_CHOP = 0x20
-//INT_TEST = 0x10
-//TEST_AMP = 0x04
-//TEST_FREQ1 = 0x02
-//TEST_FREQ0 = 0x01
+pub const INT_TEST: u8 = 0x10;
+pub const TEST_AMP: u8 = 0x04;
+pub const TEST_FREQ1: u8 = 0x02;
+pub const TEST_FREQ0: u8 = 0x01;
 //
-//CONFIG2_const = 0xC0
-//INT_TEST_4HZ = INT_TEST
-//INT_TEST_8HZ = (INT_TEST | TEST_FREQ0)
-//INT_TEST_DC = (INT_TEST | TEST_FREQ1 | TEST_FREQ0)
+pub const CONFIG2_const: u8 = 0xC0;
+pub const CONFIG1_const: u8 = 0x90;
+pub const INT_TEST_4HZ: u8 = INT_TEST;
+pub const INT_TEST_8HZ: u8 = (INT_TEST | TEST_FREQ0);
+pub const INT_TEST_DC: u8 = (INT_TEST | TEST_FREQ1 | TEST_FREQ0);
 //
 //PD_REFBUF = 0x80
 //VREF_4V = 0x20
@@ -152,25 +170,47 @@ pub enum LeadOffStatus {
 //FLEAD_OFF_AC = FLEAD_OFF0
 //FLEAD_OFF_DC = (FLEAD_OFF1 | FLEAD_OFF0)
 //
-//PDn = 0x80
+pub const PDn: u8 = 0x80;
 //GAINn2 = 0x40
 //GAINn1 = 0x20
 //GAINn0 = 0x10
 //SRB2n0 = 0x08
-//MUXn2 = 0x04
-//MUXn1 = 0x02
-//MUXn0 = 0x01
+
+pub const MUXn2: u8 = 0x04;
+pub const MUXn1: u8 = 0x02;
+pub const MUXn0: u8 = 0x01;
+
 //
 //CHnSET_const = 0x00
 //
-//# ADS1299
-//GAIN_1X = 0x00
-//GAIN_2X = GAINn0
-//GAIN_4X = GAINn1
-//GAIN_6X = (GAINn1 | GAINn0)
-//GAIN_8X = GAINn2
-//GAIN_12X = (GAINn2 | GAINn0)
-//GAIN_24X = (GAINn2 | GAINn1)
+
+// http://www.ti.com/lit/ds/symlink/ads1299.pdf  pg 50
+#[derive(Debug)]
+pub enum Gain {
+    X1 = 0b0,
+    X2 = 0b001,
+    X4 = 0b010,
+    X6 = 0b011,
+    X8 = 0b100,
+    X12 = 0b101,
+    X24 = 0b110,
+}
+
+impl fmt::Display for Gain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::X1 => "X1",
+            Self::X2 => "X2",
+            Self::X4 => "X4",
+            Self::X6 => "X6",
+            Self::X8 => "X8",
+            Self::X12 => "X12",
+            Self::X24 => "X24",
+        };
+        write!(f, "Gain {}", s)
+    }
+}
+
 //
 //# ADS1298
 //ADS1298_GAIN_1X = GAINn0
@@ -181,14 +221,14 @@ pub enum LeadOffStatus {
 //ADS1298_GAIN_8X = (GAINn2 | GAINn0)
 //ADS1298_GAIN_12X = (GAINn2 | GAINn1)
 //
-//ELECTRODE_INPUT = 0x00
-//SHORTED = MUXn0
+pub const ELECTRODE_INPUT: u8 = 0x00;
+pub const SHORTED: u8 = 0x01;
 //RLD_INPUT = MUXn1
-//MVDD = (MUXn1 | MUXn0)
-//TEMP = MUXn2
-//TEST_SIGNAL = (MUXn2 | MUXn0)
-//BIAS_DRP = (MUXn2 | MUXn1)
-//BIAS_DRN = (MUXn2 | MUXn1 | MUXn0)
+pub const MVDD: u8 = (MUXn1 | MUXn0);
+pub const TEMP: u8 = MUXn2;
+pub const TEST_SIGNAL: u8 = (MUXn2 | MUXn0);
+pub const BIAS_DRP: u8 = (MUXn2 | MUXn1);
+pub const BIAS_DRN: u8 = (MUXn2 | MUXn1 | MUXn0);
 //
 //PD_1 = 0x80
 //GAIN12 = 0x40
@@ -475,5 +515,5 @@ pub enum LeadOffStatus {
 //WCTC_CH4P = (WCTC2 | WCTC1)
 //WCTC_CH4N = (WCTC2 | WCTC1 | WCTC0)
 //
-//MISC1_const = 0
-//SRB1 = 0x20
+pub const MISC1_const: u8 = 0;
+pub const SRB1: u8 = 0x20;
