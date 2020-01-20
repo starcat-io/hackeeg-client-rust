@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .arg(
             Arg::with_name("channel_test")
                 .short("T")
-                .long("chanel-test")
+                .long("channel-test")
                 .help("Set the channels to internal test settings for software testing")
         )
         .arg(
