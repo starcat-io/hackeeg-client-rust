@@ -56,7 +56,7 @@ impl HackEEGClient {
 
     pub fn enable_all_channels(&self, gain: Option<ads1299::Gain>) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Enabling all channels");
-        for chan_idx in 1..=constants::NUM_CHANNELS {
+        for chan_idx in 1..=constants::NUM_CHANNELS + 1 {
             self.enable_channel(chan_idx as u8, gain)?
         }
         Ok(())
@@ -75,23 +75,24 @@ impl HackEEGClient {
                 target: CLIENT_TAG,
                 "We're in continuous read mode, temporarily disabling"
             );
-            self.sdatac();
+            self.sdatac()?;
             true
         } else {
             false
         };
 
-        self.wreg(
+        let status: Status = self.wreg(
             ads1299::ChannelSettings::CHnSET as u8 + chan_num,
             ads1299::ELECTRODE_INPUT | gain as u8,
         )?;
+        status.assert();
 
         if was_reading {
             debug!(
                 target: CLIENT_TAG,
                 "We were in continuous read, re-enabling"
             );
-            self.rdatac();
+            self.rdatac()?;
         }
 
         Ok(())
@@ -164,13 +165,15 @@ impl HackEEGClient {
         Ok(())
     }
 
-    pub fn disable_channel(&self, chan_num: u8) -> ClientResult<Status> {
+    pub fn disable_channel(&self, chan_num: u8) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling channel {}", chan_num);
 
-        self.wreg(
+        let status: Status = self.wreg(
             ads1299::ChannelSettings::CHnSET as u8 + chan_num,
             ads1299::PDn | ads1299::SHORTED,
-        )
+        )?;
+        status.assert()?;
+        Ok(())
     }
 
     pub fn blink_test(&self, num: u32) -> ClientResult<()> {

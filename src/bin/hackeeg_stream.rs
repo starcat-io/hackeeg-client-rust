@@ -127,7 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .parse::<u32>()?
             .into();
         info!(target: MAIN_TAG, "Configuring channels with gain {}", gain);
-        client.enable_all_channels(Some(gain));
+        client.enable_all_channels(Some(gain))?;
     }
 
     // Route reference electrode to SRB1: JP8:1-2, JP7:NC (not connected)
