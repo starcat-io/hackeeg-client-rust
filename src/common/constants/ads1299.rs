@@ -185,7 +185,7 @@ pub const MUXn0: u8 = 0x01;
 //
 
 // http://www.ti.com/lit/ds/symlink/ads1299.pdf  pg 50
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Gain {
     X1 = 0b0,
     X2 = 0b001,
@@ -208,6 +208,21 @@ impl fmt::Display for Gain {
             Self::X24 => "X24",
         };
         write!(f, "Gain {}", s)
+    }
+}
+
+impl From<u32> for Gain {
+    fn from(num: u32) -> Self {
+        match num {
+            1 => Gain::X1,
+            2 => Gain::X2,
+            4 => Gain::X4,
+            6 => Gain::X6,
+            8 => Gain::X8,
+            12 => Gain::X12,
+            24 => Gain::X24,
+            _ => panic!("Invalid gain"),
+        }
     }
 }
 

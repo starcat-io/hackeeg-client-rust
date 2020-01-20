@@ -74,6 +74,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .long("messagepack")
                 .help("MessagePack mode- use MessagePack format to send sample data to the host, rather than JSON Lines")
         )
+        .arg(
+            Arg::with_name("channel_test")
+                .short("T")
+                .long("chanel-test")
+                .help("Set the channels to internal test settings for software testing")
+        )
+        .arg(
+            Arg::with_name("gain")
+                .short("g")
+                .long("gain")
+                .help("ADS1299 gain setting for all channels")
+                .default_value("1")
+                .takes_value(true)
+        )
         .get_matches();
 
     let log_level = match matches.occurrences_of("verbosity") {
@@ -103,8 +117,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!(target: MAIN_TAG, "Disabling all channels");
     client.disable_all_channels()?;
 
-    info!(target: MAIN_TAG, "Enabling channel config test");
-    client.channel_config_test()?;
+    if matches.is_present("channel_test") {
+        info!(target: MAIN_TAG, "Enabling channel config test");
+        client.channel_config_test()?;
+    } else {
+        let gain: ads1299::Gain = matches
+            .value_of("gain")
+            .expect("Expected gain")
+            .parse::<u32>()?
+            .into();
+        info!(target: MAIN_TAG, "Configuring channels with gain {}", gain);
+        client.enable_all_channels(Some(gain));
+    }
 
     // Route reference electrode to SRB1: JP8:1-2, JP7:NC (not connected)
     // use this with humans to reduce noise
