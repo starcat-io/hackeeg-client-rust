@@ -4,7 +4,7 @@ use base64::DecodeError;
 #[derive(Debug)]
 pub enum ClientError {
     IOError(std::io::Error),
-    DeserializeError(serde_json::error::Error),
+    DeserializeError(Box<dyn std::error::Error>),
     BadStatus(Status),
     InvalidBase64(base64::DecodeError),
     Other(Box<dyn std::error::Error>),
@@ -18,7 +18,13 @@ impl From<std::io::Error> for ClientError {
 
 impl From<serde_json::error::Error> for ClientError {
     fn from(e: serde_json::error::Error) -> Self {
-        ClientError::DeserializeError(e)
+        ClientError::DeserializeError(Box::new(e))
+    }
+}
+
+impl From<rmp_serde::decode::Error> for ClientError {
+    fn from(e: rmp_serde::decode::Error) -> Self {
+        ClientError::DeserializeError(Box::new(e))
     }
 }
 

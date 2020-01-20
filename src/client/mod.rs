@@ -295,13 +295,25 @@ impl HackEEGClient {
         Ok(())
     }
 
-    pub fn read_rdatac_response(&self) -> ClientResult<sample::Payload> {
-        let resp = self.read_response_line()?;
-        trace!(target: CLIENT_TAG, "Raw rdatac response line: {}", resp);
-        let sample: commands::responses::Sample = serde_json::from_str(&resp)?;
-        let decoded = base64::decode(sample.data.as_bytes())?;
-        let payload: sample::Payload = decoded.as_slice().into();
-        Ok(payload)
+    fn messagepack_read(&self) -> ClientResult<sample::Sample> {
+        let mut port = self.port.borrow_mut();
+        let payload: commands::responses::MessagepackPayload =
+            rmp_serde::from_read(port.get_mut())?;
+        let sample = payload.data.as_slice().into();
+        Ok(sample)
+    }
+
+    pub fn read_rdatac_response(&self) -> ClientResult<sample::Sample> {
+        if self.mode == Mode::MsgPack {
+            let sample = self.messagepack_read()?;
+            Ok(sample)
+        } else {
+            let resp = self.read_response_line()?;
+
+            trace!(target: CLIENT_TAG, "Raw rdatac response line: {:?}", resp);
+            let payload: commands::responses::JSONPayload = serde_json::from_str(&resp)?;
+            Ok(payload.data.into())
+        }
     }
 
     pub fn stop_and_sdatac_messagepack(&self) -> ClientResult<()> {
@@ -358,7 +370,7 @@ impl HackEEGClient {
                 },
                 Mode::JsonLines => match self.mode {
                     Mode::MsgPack => {
-                        self.send_text_cmd("messagepack")?;
+                        self.send_text_cmd("jsonlines")?;
                     }
                     Mode::Text | Mode::Unknown => {
                         self.stop();
@@ -373,10 +385,12 @@ impl HackEEGClient {
                 },
                 Mode::MsgPack => match self.mode {
                     Mode::JsonLines => {
-                        self.send_text_cmd("jsonlines")?;
+                        let status: Status = self.execute_json_cmd("messagepack", NoArgs)?;
+                        status.assert()?;
                     }
                     Mode::Text => {
-                        let status: Status = self.execute_json_cmd("text", NoArgs)?;
+                        self.send_text_cmd("jsonlines")?;
+                        let status: Status = self.execute_json_cmd("messagepack", NoArgs)?;
                         status.assert()?;
                     }
                     _ => unreachable!(),

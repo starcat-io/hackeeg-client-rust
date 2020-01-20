@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, warn};
 use std::time::Duration;
 
 use clap::{App, AppSettings, Arg};
@@ -68,6 +68,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("How many samples to capture")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("messagepack")
+                .short("M")
+                .long("messagepack")
+                .help("MessagePack mode- use MessagePack format to send sample data to the host, rather than JSON Lines")
+        )
         .get_matches();
 
     let log_level = match matches.occurrences_of("verbosity") {
@@ -117,6 +123,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .wreg::<Status>(ads1299::MISC1, ads1299::MISC1_const)?
         .assert()?;
 
+    if matches.is_present("messagepack") {
+        client.ensure_mode(Mode::MsgPack)?;
+    } else {
+        client.ensure_mode(Mode::JsonLines)?;
+    }
     client.start()?;
     client.rdatac()?;
 
@@ -147,55 +158,67 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let start = std::time::Instant::now();
     let mut counter: u64 = 0;
+    let mut errors: u64 = 0;
     let max_samples = match matches.value_of("samples") {
         Some(samples_str) => samples_str.parse::<u64>()?,
         None => 0,
     };
 
     loop {
-        let resp = client.read_rdatac_response()?;
-        let ch = resp.channels;
-
-        if !quiet {
-            println!(
-                "{} @ {}: [{}, {}, {}, {}, {}, {}, {}, {}]",
-                resp.sample_number,
-                resp.timestamp,
-                ch[0].sample,
-                ch[1].sample,
-                ch[2].sample,
-                ch[3].sample,
-                ch[4].sample,
-                ch[5].sample,
-                ch[6].sample,
-                ch[7].sample
-            );
-        }
-
-        if let Some(ref outlet) = maybe_outlet {
-            outlet.push_chunk(resp.as_lsl_data().as_slice(), resp.timestamp as f64);
-        }
-
-        counter += 1;
-
-        if max_samples > 0 && counter >= max_samples {
-            info!(
-                target: MAIN_TAG,
-                "Reached {} samples, breaking", max_samples
-            );
-            break;
-        }
-
         if sigint.load(Ordering::Relaxed) {
             info!(target: MAIN_TAG, "Got SIGINT, breaking read loop");
             break;
+        }
+
+        let resp = client.read_rdatac_response();
+        match resp {
+            Err(e) => {
+                errors += 1;
+                warn!(target: MAIN_TAG, "Error getting response: {:?}", e);
+                continue;
+            }
+            Ok(sample) => {
+                let ch = sample.channels;
+
+                if !quiet {
+                    println!(
+                        "{} @ {}: [{}, {}, {}, {}, {}, {}, {}, {}]",
+                        sample.sample_number,
+                        sample.timestamp,
+                        ch[0].sample,
+                        ch[1].sample,
+                        ch[2].sample,
+                        ch[3].sample,
+                        ch[4].sample,
+                        ch[5].sample,
+                        ch[6].sample,
+                        ch[7].sample
+                    );
+                }
+
+                if let Some(ref outlet) = maybe_outlet {
+                    outlet.push_chunk(sample.as_lsl_data().as_slice(), sample.timestamp as f64);
+                }
+
+                counter += 1;
+
+                if max_samples > 0 && counter >= max_samples {
+                    info!(
+                        target: MAIN_TAG,
+                        "Reached {} samples, breaking", max_samples
+                    );
+                    break;
+                }
+            }
         }
     }
 
     let elapsed = start.elapsed();
     info!(
-        "{} samples in {} seconds, or {}/s",
+        target: MAIN_TAG,
+        "{} samples ({} errors) in {} seconds, or {}/s",
         counter,
+        errors,
         elapsed.as_secs_f32(),
         counter as f32 / elapsed.as_secs_f32()
     );
