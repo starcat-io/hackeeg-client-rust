@@ -56,7 +56,7 @@ impl HackEEGClient {
 
     pub fn enable_all_channels(&self, gain: Option<ads1299::Gain>) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Enabling all channels");
-        for chan_idx in 1..=constants::NUM_CHANNELS + 1 {
+        for chan_idx in 1..=constants::NUM_CHANNELS {
             self.enable_channel(chan_idx as u8, gain)?
         }
         Ok(())
@@ -159,7 +159,7 @@ impl HackEEGClient {
 
     pub fn disable_all_channels(&self) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling all channels");
-        for chan_idx in 1..=constants::NUM_CHANNELS + 1 {
+        for chan_idx in 1..=constants::NUM_CHANNELS {
             self.disable_channel(chan_idx as u8)?;
         }
         Ok(())
