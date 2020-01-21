@@ -36,11 +36,3 @@ pub struct JSONPayload {
     #[serde(rename = "D")]
     pub data: String,
 }
-
-#[derive(Deserialize, Clone, Debug)]
-pub struct MessagepackPayload {
-    #[serde(rename = "C")]
-    pub code: u32,
-    #[serde(rename = "D", with = "serde_bytes")]
-    pub data: Vec<u8>,
-}

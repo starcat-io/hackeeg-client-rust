@@ -300,9 +300,9 @@ impl HackEEGClient {
 
     fn messagepack_read(&self) -> ClientResult<sample::Sample> {
         let mut port = self.port.borrow_mut();
-        let payload: commands::responses::MessagepackPayload =
-            rmp_serde::from_read(port.get_mut())?;
-        let sample = payload.data.as_slice().into();
+        let mut mp_buf = [0; constants::MP_MESSAGE_SIZE];
+        port.read_exact(&mut mp_buf)?;
+        let sample = mp_buf[constants::MP_BINARY_OFFSET..].into();
         Ok(sample)
     }
 
