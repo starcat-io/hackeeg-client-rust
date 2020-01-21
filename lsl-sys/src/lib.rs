@@ -110,7 +110,7 @@ pub struct Outlet<Format> {
 impl Outlet<i32> {
     pub fn push_chunk(&self, data: &[i32], timestamp: f64) -> i32 {
         unsafe {
-            bindings::lsl_push_chunk_it(self.handle, data.as_ptr(), data.len() as u64, timestamp)
+            bindings::lsl_push_chunk_it(self.handle, data.as_ptr(), data.len() as usize, timestamp)
         }
     }
 }
@@ -118,7 +118,7 @@ impl Outlet<i32> {
 impl Outlet<f32> {
     pub fn push_chunk(&self, data: &[f32], timestamp: f64) -> i32 {
         unsafe {
-            bindings::lsl_push_chunk_ft(self.handle, data.as_ptr(), data.len() as u64, timestamp)
+            bindings::lsl_push_chunk_ft(self.handle, data.as_ptr(), data.len() as usize, timestamp)
         }
     }
 }
