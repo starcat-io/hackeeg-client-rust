@@ -14,7 +14,7 @@ impl From<&[u8]> for Channel {
     }
 }
 
-pub struct Payload {
+pub struct Sample {
     pub timestamp: u32,
     pub sample_number: u32,
     pub ads_status: u32,
@@ -25,7 +25,7 @@ pub struct Payload {
     pub channels: [Channel; NUM_CHANNELS],
 }
 
-impl Payload {
+impl Sample {
     pub fn as_lsl_data(&self) -> Vec<i32> {
         vec![
             self.channels[0].sample,
@@ -38,10 +38,8 @@ impl Payload {
             self.channels[7].sample,
         ]
     }
-}
 
-impl From<&[u8]> for Payload {
-    fn from(data: &[u8]) -> Self {
+    pub fn from_bytes(data: &[u8]) -> Self {
         let timestamp = u32::from_le_bytes(data[0..4].try_into().unwrap());
         let sample_number = u32::from_le_bytes(data[4..8].try_into().unwrap());
 
@@ -71,5 +69,18 @@ impl From<&[u8]> for Payload {
             extra,
             channels,
         }
+    }
+}
+
+impl From<&[u8]> for Sample {
+    fn from(data: &[u8]) -> Self {
+        Self::from_bytes(data)
+    }
+}
+
+impl From<String> for Sample {
+    fn from(data: String) -> Self {
+        let decoded = base64::decode(data.as_bytes()).unwrap();
+        Self::from_bytes(decoded.as_slice())
     }
 }

@@ -54,10 +54,10 @@ impl HackEEGClient {
         Ok(client)
     }
 
-    pub fn enable_all_channels(&self) -> ClientResult<()> {
+    pub fn enable_all_channels(&self, gain: Option<ads1299::Gain>) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Enabling all channels");
         for chan_idx in 1..=constants::NUM_CHANNELS {
-            self.enable_channel(chan_idx as u8, None)?
+            self.enable_channel(chan_idx as u8, gain)?
         }
         Ok(())
     }
@@ -75,23 +75,24 @@ impl HackEEGClient {
                 target: CLIENT_TAG,
                 "We're in continuous read mode, temporarily disabling"
             );
-            self.sdatac();
+            self.sdatac()?;
             true
         } else {
             false
         };
 
-        self.wreg(
+        let status: Status = self.wreg(
             ads1299::ChannelSettings::CHnSET as u8 + chan_num,
             ads1299::ELECTRODE_INPUT | gain as u8,
         )?;
+        status.assert();
 
         if was_reading {
             debug!(
                 target: CLIENT_TAG,
                 "We were in continuous read, re-enabling"
             );
-            self.rdatac();
+            self.rdatac()?;
         }
 
         Ok(())
@@ -158,19 +159,21 @@ impl HackEEGClient {
 
     pub fn disable_all_channels(&self) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling all channels");
-        for chan_idx in 1..=constants::NUM_CHANNELS + 1 {
+        for chan_idx in 1..=constants::NUM_CHANNELS {
             self.disable_channel(chan_idx as u8)?;
         }
         Ok(())
     }
 
-    pub fn disable_channel(&self, chan_num: u8) -> ClientResult<Status> {
+    pub fn disable_channel(&self, chan_num: u8) -> ClientResult<()> {
         info!(target: CLIENT_TAG, "Disabling channel {}", chan_num);
 
-        self.wreg(
+        let status: Status = self.wreg(
             ads1299::ChannelSettings::CHnSET as u8 + chan_num,
             ads1299::PDn | ads1299::SHORTED,
-        )
+        )?;
+        status.assert()?;
+        Ok(())
     }
 
     pub fn blink_test(&self, num: u32) -> ClientResult<()> {
@@ -295,13 +298,25 @@ impl HackEEGClient {
         Ok(())
     }
 
-    pub fn read_rdatac_response(&self) -> ClientResult<sample::Payload> {
-        let resp = self.read_response_line()?;
-        trace!(target: CLIENT_TAG, "Raw rdatac response line: {}", resp);
-        let sample: commands::responses::Sample = serde_json::from_str(&resp)?;
-        let decoded = base64::decode(sample.data.as_bytes())?;
-        let payload: sample::Payload = decoded.as_slice().into();
-        Ok(payload)
+    fn messagepack_read(&self) -> ClientResult<sample::Sample> {
+        let mut port = self.port.borrow_mut();
+        let mut mp_buf = [0; constants::MP_MESSAGE_SIZE];
+        port.read_exact(&mut mp_buf)?;
+        let sample = mp_buf[constants::MP_BINARY_OFFSET..].into();
+        Ok(sample)
+    }
+
+    pub fn read_rdatac_response(&self) -> ClientResult<sample::Sample> {
+        if self.mode == Mode::MsgPack {
+            let sample = self.messagepack_read()?;
+            Ok(sample)
+        } else {
+            let resp = self.read_response_line()?;
+
+            trace!(target: CLIENT_TAG, "Raw rdatac response line: {:?}", resp);
+            let payload: commands::responses::JSONPayload = serde_json::from_str(&resp)?;
+            Ok(payload.data.into())
+        }
     }
 
     pub fn stop_and_sdatac_messagepack(&self) -> ClientResult<()> {
@@ -358,7 +373,7 @@ impl HackEEGClient {
                 },
                 Mode::JsonLines => match self.mode {
                     Mode::MsgPack => {
-                        self.send_text_cmd("messagepack")?;
+                        self.send_text_cmd("jsonlines")?;
                     }
                     Mode::Text | Mode::Unknown => {
                         self.stop();
@@ -373,10 +388,12 @@ impl HackEEGClient {
                 },
                 Mode::MsgPack => match self.mode {
                     Mode::JsonLines => {
-                        self.send_text_cmd("jsonlines")?;
+                        let status: Status = self.execute_json_cmd("messagepack", NoArgs)?;
+                        status.assert()?;
                     }
                     Mode::Text => {
-                        let status: Status = self.execute_json_cmd("text", NoArgs)?;
+                        self.send_text_cmd("jsonlines")?;
+                        let status: Status = self.execute_json_cmd("messagepack", NoArgs)?;
                         status.assert()?;
                     }
                     _ => unreachable!(),

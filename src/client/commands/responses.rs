@@ -30,7 +30,7 @@ impl From<Status> for Box<dyn std::error::Error> {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct Sample {
+pub struct JSONPayload {
     #[serde(rename = "C")]
     pub code: u32,
     #[serde(rename = "D")]
