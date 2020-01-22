@@ -1,10 +1,10 @@
 [package]
 name = "hackeeg-client-rust"
 version = "0.1.0"
-authors = ["Adam Feuer <adam@adamfeuer.com>"]
+authors = ["Adam Feuer <adam@starcat.io>"]
 edition = "2018"
+license = "Apache-2.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
 members = [".", "lsl-sys"]
 
