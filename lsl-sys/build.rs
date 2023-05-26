@@ -1,11 +1,11 @@
 // Copyright © 2020 Starcat LLC
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let lsl_dir = out_dir.join("liblsl-1.13.0-b14");
     let lsl_build_dir = lsl_dir.join("build");
     let lsl_include_dir = lsl_dir.join("include");
+    let lsl_lib_dir = package_dir.join("lib");
 
     if !lsl_dir.exists() {
         let tar_gz = File::open(package_dir.join("liblsl-1.13.0-b14.tar.gz"))?;
@@ -37,17 +38,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=wrapper.h");
 
     println!("cargo:rustc-link-search={}", lsl_build_dir.display());
+    println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
+    //println!("cargo:rustc-link-lib=static=liblsl64");
     println!("cargo:rustc-link-lib=static=lsl-static");
-    println!("cargo:rustc-link-lib=stdc++");
+    //println!("cargo:rustc-link-lib=stdc++");
 
     if !lsl_build_dir.exists() {
         std::fs::create_dir(&lsl_build_dir)?;
     }
+
+
+    Command::new("cmake")
+        .arg(&lsl_dir)
+        .arg("-B build")
+        .arg("-G 'Visual Studio 17 2022'")
+        .arg("-A x64")
+        .current_dir(&lsl_build_dir)
+        .spawn()?
+        .wait();
+
+    Command::new("cmake")
+        .arg(&lsl_dir)
+        .arg("-B build")
+        .arg("-G 'Visual Studio 17 2022'")
+        .arg("-DiLSL_BUILD_STATIC=on")
+        //.arg("--config Release")
+        //.arg("-t install")
+        .current_dir(&lsl_build_dir)
+        .spawn()?
+        .wait();
+/*
+
     Command::new("cmake")
         .arg(&lsl_dir)
         .arg("-DLSL_BUILD_STATIC=1")
         .arg("-DBOOST_ALL_NO_LIB=1")
-        .current_dir(&lsl_build_dir)
+        .cxurrent_dir(&lsl_build_dir)
         .spawn()?
         .wait();
 
@@ -56,6 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         //.arg(format!("-j{}", num_cpus::get() - 1))
         .spawn()?
         .wait();
+*/
 
     let bindings = bindgen::Builder::default()
         .clang_arg(format!("-I{}", lsl_include_dir.display()))
