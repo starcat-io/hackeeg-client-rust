@@ -116,11 +116,15 @@ impl StreamInfo<i32> {
     }
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(all(target_pointer_width = "64", target_os = "windows"))]
 type PtrWidth = u32;
+
+#[cfg(all(target_pointer_width = "64", any(target_os = "linux", target_os = "macos")))]
+type PtrWidth = u64;
 
 #[cfg(target_pointer_width = "32")]
 type PtrWidth = u32;
+
 
 pub struct Outlet<Format> {
     info: StreamInfo<Format>,

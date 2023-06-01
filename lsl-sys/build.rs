@@ -38,51 +38,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=wrapper.h");
 
     println!("cargo:rustc-link-search={}", lsl_build_dir.display());
-    println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
-    //println!("cargo:rustc-link-lib=static=liblsl64");
     println!("cargo:rustc-link-lib=static=lsl-static");
-    //println!("cargo:rustc-link-lib=stdc++");
 
     if !lsl_build_dir.exists() {
         std::fs::create_dir(&lsl_build_dir)?;
     }
 
+    if cfg!(target_os = "windows") {
+    	println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
 
-    Command::new("cmake")
-        .arg(&lsl_dir)
-        .arg("-B build")
-        .arg("-G 'Visual Studio 17 2022'")
-        .arg("-A x64")
-        .current_dir(&lsl_build_dir)
-        .spawn()?
-        .wait();
+        Command::new("cmake")
+            .arg(&lsl_dir)
+            .arg("-B build")
+            .arg("-G 'Visual Studio 17 2022'")
+            .arg("-A x64")
+            .current_dir(&lsl_build_dir)
+            .spawn()?
+            .wait();
 
-    Command::new("cmake")
-        .arg(&lsl_dir)
-        .arg("-B build")
-        .arg("-G 'Visual Studio 17 2022'")
-        .arg("-DiLSL_BUILD_STATIC=on")
-        //.arg("--config Release")
-        //.arg("-t install")
-        .current_dir(&lsl_build_dir)
-        .spawn()?
-        .wait();
-/*
+        Command::new("cmake")
+            .arg(&lsl_dir)
+            .arg("-B build")
+            .arg("-G 'Visual Studio 17 2022'")
+            .arg("-DiLSL_BUILD_STATIC=on")
+            //.arg("--config Release")
+            //.arg("-t install")
+            .current_dir(&lsl_build_dir)
+            .spawn()?
+            .wait();
+    } else {
+    	println!("cargo:rustc-link-lib=stdc++");
 
-    Command::new("cmake")
-        .arg(&lsl_dir)
-        .arg("-DLSL_BUILD_STATIC=1")
-        .arg("-DBOOST_ALL_NO_LIB=1")
-        .cxurrent_dir(&lsl_build_dir)
-        .spawn()?
-        .wait();
+        Command::new("cmake")
+            .arg(&lsl_dir)
+            .arg("-DLSL_BUILD_STATIC=1")
+            .arg("-DBOOST_ALL_NO_LIB=1")
+            .current_dir(&lsl_build_dir)
+            .spawn()?
+            .wait();
 
-    Command::new("make")
-        .current_dir(&lsl_build_dir)
-        //.arg(format!("-j{}", num_cpus::get() - 1))
-        .spawn()?
-        .wait();
-*/
+        Command::new("make")
+            .current_dir(&lsl_build_dir)
+            //.arg(format!("-j{}", num_cpus::get() - 1))
+            .spawn()?
+            .wait();
+    }
 
     let bindings = bindgen::Builder::default()
         .clang_arg(format!("-I{}", lsl_include_dir.display()))
