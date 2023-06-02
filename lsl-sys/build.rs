@@ -22,12 +22,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
     let package_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
 
-    let lsl_dir = out_dir.join("liblsl-1.13.0-b14");
+    let lsl_dir = out_dir.join("liblsl-1.16.2");
     let lsl_build_dir = lsl_dir.join("build");
     let lsl_include_dir = lsl_dir.join("include");
 
     if !lsl_dir.exists() {
-        let tar_gz = File::open(package_dir.join("liblsl-1.13.0-b14.tar.gz"))?;
+        let tar_gz = File::open(package_dir.join("liblsl-1.16.2.tar.gz"))?;
         let tar = GzDecoder::new(tar_gz);
         let mut archive = Archive::new(tar);
         archive.unpack(&out_dir)?;
@@ -37,12 +37,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=wrapper.h");
 
     println!("cargo:rustc-link-search={}", lsl_build_dir.display());
-    println!("cargo:rustc-link-lib=static=lsl-static");
+    println!("cargo:rustc-link-lib=static=lsl");
     println!("cargo:rustc-link-lib=stdc++");
 
     if !lsl_build_dir.exists() {
         std::fs::create_dir(&lsl_build_dir)?;
     }
+
     Command::new("cmake")
         .arg(&lsl_dir)
         .arg("-DLSL_BUILD_STATIC=1")
