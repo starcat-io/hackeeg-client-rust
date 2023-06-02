@@ -18,6 +18,24 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tar::Archive;
 
+fn build_lsl_unix(lsl_dir: PathBuf,lsl_build_dir: PathBuf) {
+    Command::new("cmake")
+        .arg(&lsl_dir)
+        .arg("-DLSL_BUILD_STATIC=1")
+        .arg("-DBOOST_ALL_NO_LIB=1")
+        .current_dir(&lsl_build_dir)
+        .spawn()
+        .expect("Can't spawn subprocess.")
+        .wait();
+
+    Command::new("make")
+        .current_dir(&lsl_build_dir)
+        //.arg(format!("-j{}", num_cpus::get() - 1))
+        .spawn()
+        .expect("Can't spawn subprocess.")
+        .wait();
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
     let package_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
@@ -38,26 +56,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("cargo:rustc-link-search={}", lsl_build_dir.display());
     println!("cargo:rustc-link-lib=static=lsl");
-    println!("cargo:rustc-link-lib=stdc++");
 
     if !lsl_build_dir.exists() {
         std::fs::create_dir(&lsl_build_dir)?;
     }
 
-    Command::new("cmake")
-        .arg(&lsl_dir)
-        .arg("-DLSL_BUILD_STATIC=1")
-        .arg("-DBOOST_ALL_NO_LIB=1")
-        .current_dir(&lsl_build_dir)
-        .spawn()?
-        .wait();
-
-    Command::new("make")
-        .current_dir(&lsl_build_dir)
-        //.arg(format!("-j{}", num_cpus::get() - 1))
-        .spawn()?
-        .wait();
-
+    if cfg!(target_os = "linux") {
+        println!("cargo:rustc-link-lib=stdc++");
+        build_lsl_unix(lsl_dir, lsl_build_dir);
+    } else if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=c++");
+        build_lsl_unix(lsl_dir, lsl_build_dir);
+    } else {
+        println!("cargo:warning=Unsupported operating system.") 
+    }
     let bindings = bindgen::Builder::default()
         .clang_arg(format!("-I{}", lsl_include_dir.display()))
         .header("wrapper.h")
