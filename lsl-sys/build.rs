@@ -16,6 +16,8 @@ use flate2::read::GzDecoder;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::env;
+use std::io::{self, Write};
 use tar::Archive;
 
 fn build_lsl_unix(lsl_dir: PathBuf,lsl_build_dir: PathBuf) {
@@ -37,13 +39,14 @@ fn build_lsl_unix(lsl_dir: PathBuf,lsl_build_dir: PathBuf) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
+    //let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
+    let out_dir: PathBuf = ".".into(); 
     let package_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
 
     let lsl_dir = out_dir.join("liblsl-1.16.2");
     let lsl_build_dir = lsl_dir.join("build");
     let lsl_include_dir = lsl_dir.join("include");
-    let lsl_lib_dir = package_dir.join("lib");
+    let lsl_lib_dir = lsl_build_dir.join("Release");
 
     if !lsl_dir.exists() {
         let tar_gz = File::open(package_dir.join("liblsl-1.16.2.tar.gz"))?;
@@ -68,27 +71,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=c++");
         build_lsl_unix(lsl_dir, lsl_build_dir);
-    } else     if cfg!(target_os = "windows") {
+    } else if cfg!(target_os = "windows") {
     	println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
         Command::new("cmake")
-            .arg(&lsl_dir)
-            .arg("-B build")
-            .arg("-G 'Visual Studio 17 2022'")
-            .arg("-A x64")
-            .current_dir(&lsl_build_dir)
+            .arg("--version")
             .spawn()?
-            .wait();
+            .wait()
+            .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
+        Command::new("cmake")
+            .arg(&lsl_dir)
+            //.arg("-S .")
+            //.arg(&("-B ".to_owned() + &lsl_build_dir.display().to_string()))
+            .arg("-B build")
+            .arg("-G Visual Studio 17 2022")
+            .arg("-A x64")
+            //.current_dir(&lsl_dir)
+            .spawn()?
+            .wait()
+            .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
 
         Command::new("cmake")
             .arg(&lsl_dir)
+            //.arg(&("-B ".to_owned() + &lsl_build_dir.display().to_string()))
             .arg("-B build")
-            .arg("-G 'Visual Studio 17 2022'")
-            .arg("-DiLSL_BUILD_STATIC=on")
-            //.arg("--config Release")
-            //.arg("-t install")
-            .current_dir(&lsl_build_dir)
+            //.arg("-G 'Visual Studio 17 2022'")
+            //.arg("-DLSL_BUILD_STATIC=on")
+            .arg("--config Release")
+            //.current_dir(&lsl_dir)
             .spawn()?
-            .wait();
+            .wait()
+            .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
     } else {
         println!("cargo:warning=Unsupported operating system.") 
     }
@@ -106,5 +118,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .write_to_file(out_dir.join(lsl_binding))
         .expect("Couldn't write bindings!");
 
-    Ok(())
+    //Ok(())
+    panic!();
 }

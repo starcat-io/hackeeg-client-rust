@@ -1,13 +1,16 @@
 [package]
 name = "lsl-sys"
 version = "0.1.0"
-authors = ["Andrew Moffat <arwmoffat@gmail.com>"]
-edition = "2018"
+authors = ["Andrew Moffat <arwmoffat@gmail.com>", "Adam Feuer <adam@starcat.io>"]
+edition = "2021"
 links = "lsl"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+[target.'cfg(windows)'.build-dependencies]
+powershell_script = "1.1.0"
 
 [build-dependencies]
 num_cpus = "1.12.0"
