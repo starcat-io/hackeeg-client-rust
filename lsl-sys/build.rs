@@ -71,10 +71,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rustc-link-lib=c++");
         build_lsl_unix(lsl_dir, lsl_build_dir);
     } else if cfg!(target_os = "windows") {
+    	println!("cargo:rustc-link-lib=static:-bundle=winmm");
+    	println!("cargo:rustc-link-lib=static:-bundle=iphlpapi");
     	println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
         Command::new("cmake")
             .arg(&lsl_dir)
             .arg("-B build")
+            .arg("-DLSL_BUILD_STATIC=1")
             .arg("-G Visual Studio 17 2022")
             .arg("-A x64")
             .current_dir(&lsl_dir)
@@ -93,6 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!("cargo:warning=Unsupported operating system.") 
     }
+     
     let bindings = bindgen::Builder::default()
         .clang_arg(format!("-I{}", lsl_include_dir.display()))
         .header("wrapper.h")
@@ -108,5 +112,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Couldn't write bindings!");
 
     Ok(())
-    //panic!();
 }
