@@ -20,7 +20,6 @@ use std::env;
 use tar::Archive;
 
 fn build_lsl_unix(lsl_dir: PathBuf, lsl_build_dir: PathBuf) {
-    println!("cargo:rustc-link-lib=stdc++");
     Command::new("cmake")
         .arg(&lsl_dir)
         .arg("-DLSL_BUILD_STATIC=1")
@@ -91,7 +90,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::fs::create_dir(&lsl_build_dir)?;
     }
 
-    if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
+    if cfg!(target_os = "linux") {
+        println!("cargo:rustc-link-lib=stdc++");
+        build_lsl_unix(lsl_dir, lsl_build_dir);
+    } else if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=c++");
         build_lsl_unix(lsl_dir, lsl_build_dir);
     } else if cfg!(target_os = "windows") {
         build_lsl_windows(lsl_dir, lsl_lib_dir);
