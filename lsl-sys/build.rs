@@ -39,8 +39,8 @@ fn build_lsl_unix(lsl_dir: PathBuf,lsl_build_dir: PathBuf) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
-    let out_dir: PathBuf = ".".into(); 
+    let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
+    //let out_dir: PathBuf = ".".into(); 
     let package_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
 
     let lsl_dir = out_dir.join("liblsl-1.16.2");
@@ -85,19 +85,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .arg("-B build")
             .arg("-G Visual Studio 17 2022")
             .arg("-A x64")
-            //.current_dir(&lsl_dir)
+            .current_dir(&lsl_dir)
             .spawn()?
             .wait()
             .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
 
         Command::new("cmake")
-            .arg(&lsl_dir)
+            //.arg(&lsl_dir)
             //.arg(&("-B ".to_owned() + &lsl_build_dir.display().to_string()))
-            .arg("-B build")
-            //.arg("-G 'Visual Studio 17 2022'")
-            //.arg("-DLSL_BUILD_STATIC=on")
+            .arg("--build")
+            .arg("build")
             .arg("--config Release")
-            //.current_dir(&lsl_dir)
+            .current_dir(&lsl_dir)
             .spawn()?
             .wait()
             .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
@@ -118,6 +117,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .write_to_file(out_dir.join(lsl_binding))
         .expect("Couldn't write bindings!");
 
-    //Ok(())
-    panic!();
+    Ok(())
+    //panic!();
 }
