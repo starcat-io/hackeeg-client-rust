@@ -17,7 +17,6 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::env;
-use std::io::{self, Write};
 use tar::Archive;
 
 fn build_lsl_unix(lsl_dir: PathBuf, lsl_build_dir: PathBuf) {
