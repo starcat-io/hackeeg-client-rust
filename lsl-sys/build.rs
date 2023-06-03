@@ -40,7 +40,6 @@ fn build_lsl_unix(lsl_dir: PathBuf,lsl_build_dir: PathBuf) {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
-    //let out_dir: PathBuf = ".".into(); 
     let package_dir: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
 
     let lsl_dir = out_dir.join("liblsl-1.16.2");
@@ -74,14 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if cfg!(target_os = "windows") {
     	println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
         Command::new("cmake")
-            .arg("--version")
-            .spawn()?
-            .wait()
-            .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
-        Command::new("cmake")
             .arg(&lsl_dir)
-            //.arg("-S .")
-            //.arg(&("-B ".to_owned() + &lsl_build_dir.display().to_string()))
             .arg("-B build")
             .arg("-G Visual Studio 17 2022")
             .arg("-A x64")
@@ -91,8 +83,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
 
         Command::new("cmake")
-            //.arg(&lsl_dir)
-            //.arg(&("-B ".to_owned() + &lsl_build_dir.display().to_string()))
             .arg("--build")
             .arg("build")
             .arg("--config Release")
