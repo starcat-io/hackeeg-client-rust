@@ -1,11 +1,11 @@
 // Copyright © 2020 Starcat LLC
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -116,11 +116,15 @@ impl StreamInfo<i32> {
     }
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(all(target_pointer_width = "64", target_os = "windows"))]
+type PtrWidth = u32;
+
+#[cfg(all(target_pointer_width = "64", any(target_os = "linux", target_os = "macos")))]
 type PtrWidth = u64;
 
 #[cfg(target_pointer_width = "32")]
 type PtrWidth = u32;
+
 
 pub struct Outlet<Format> {
     info: StreamInfo<Format>,
