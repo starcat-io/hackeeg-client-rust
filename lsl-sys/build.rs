@@ -20,7 +20,8 @@ use std::env;
 use std::io::{self, Write};
 use tar::Archive;
 
-fn build_lsl_unix(lsl_dir: PathBuf,lsl_build_dir: PathBuf) {
+fn build_lsl_unix(lsl_dir: PathBuf, lsl_build_dir: PathBuf) {
+    println!("cargo:rustc-link-lib=stdc++");
     Command::new("cmake")
         .arg(&lsl_dir)
         .arg("-DLSL_BUILD_STATIC=1")
@@ -36,6 +37,33 @@ fn build_lsl_unix(lsl_dir: PathBuf,lsl_build_dir: PathBuf) {
         .spawn()
         .expect("Can't spawn subprocess.")
         .wait();
+}
+
+fn build_lsl_windows(lsl_dir: PathBuf, lsl_lib_dir: PathBuf) {
+    println!("cargo:rustc-link-lib=static:-bundle=winmm");
+    println!("cargo:rustc-link-lib=static:-bundle=iphlpapi");
+    println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
+    Command::new("cmake")
+        .arg(&lsl_dir)
+        .arg("-B build")
+        .arg("-DLSL_BUILD_STATIC=1")
+        .arg("-G Visual Studio 17 2022")
+        .arg("-A x64")
+        .current_dir(&lsl_dir)
+        .spawn()
+        .expect("Can't spawn subprocess.")
+        .wait()
+        .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
+
+    Command::new("cmake")
+        .arg("--build")
+        .arg("build")
+        .arg("--config Release")
+        .current_dir(&lsl_dir)
+        .spawn()
+        .expect("Can't spawn subprocess.")
+        .wait()
+        .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -64,35 +92,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::fs::create_dir(&lsl_build_dir)?;
     }
 
-    if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=stdc++");
-        build_lsl_unix(lsl_dir, lsl_build_dir);
-    } else if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=c++");
+    if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
         build_lsl_unix(lsl_dir, lsl_build_dir);
     } else if cfg!(target_os = "windows") {
-    	println!("cargo:rustc-link-lib=static:-bundle=winmm");
-    	println!("cargo:rustc-link-lib=static:-bundle=iphlpapi");
-    	println!("cargo:rustc-link-search={}", lsl_lib_dir.display());
-        Command::new("cmake")
-            .arg(&lsl_dir)
-            .arg("-B build")
-            .arg("-DLSL_BUILD_STATIC=1")
-            .arg("-G Visual Studio 17 2022")
-            .arg("-A x64")
-            .current_dir(&lsl_dir)
-            .spawn()?
-            .wait()
-            .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
-
-        Command::new("cmake")
-            .arg("--build")
-            .arg("build")
-            .arg("--config Release")
-            .current_dir(&lsl_dir)
-            .spawn()?
-            .wait()
-            .expect(&("Cannot execute command, path: ".to_owned() + &env::var("PATH").unwrap()));
+        build_lsl_windows(lsl_dir, lsl_lib_dir);
     } else {
         println!("cargo:warning=Unsupported operating system.") 
     }
